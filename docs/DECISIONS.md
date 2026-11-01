@@ -74,3 +74,13 @@ The outbound-polling protocol (claim → lease 120 s → heartbeat → checksumm
 idempotency keys, owner-only lease actions, cancel) is implemented against an in-memory store with an injectable clock.
 It works for one local `next start` process; on Vercel each serverless instance has its own memory, so **phase 5 moves the
 same functions onto Neon + object storage**. The UI states that jobs are server-memory only.
+
+## ADR-022 Neon setup: Postgres + Object Storage on project "Assignment cloner" (2026-11-02)
+Owner signed in with the official Neon CLI (`neon` 8.16.0, npm package from the neondatabase org) and the Neon Claude Code
+plugin (skills + MCP) was installed per https://neon.com/prompts/agent-setup.md. Project `ancient-fog-17705922`
+("Assignment cloner", aws-us-east-2, Postgres 18.6), branch `production`, database `neondb`. A **private** bucket
+`assignment-files` was created; credentials come from `neon env pull -s object-storage -s data-api` (branch-scoped,
+AWS-standard names `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`). Access via the AWS
+S3 SDK with `forcePathStyle: true` and presigned URLs; anonymous reads return 403 (verified). `DATABASE_URL` is the pooled
+string for serverless, `DATABASE_URL_UNPOOLED` for migrations. Neon's AI Gateway is not used (Groq only). Phase 5 builds
+the persistence layer on these; owner authentication is still to be decided in phase 5.

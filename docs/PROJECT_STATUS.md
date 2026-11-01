@@ -41,7 +41,7 @@ Next.js 16 app, design tokens, landing (lazy WebGL hero + static fallback, befor
 Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 
 ## Blockers
-- No Neon `DATABASE_URL` / storage credentials yet → phase 5 cloud persistence will fall back to IndexedDB until provided.
+- ~~Neon credentials~~ resolved 2026-11-02: Neon Postgres + private Object Storage bucket configured and verified (ADR-022).
 
 ## Next action
 Phase 5: Neon Postgres + object storage (needs owner credentials) or IndexedDB fallback for ≥10 projects; move job store to Neon; single-owner auth; autosave/library; security/perf/a11y audit; Vercel deployment after verifying account.

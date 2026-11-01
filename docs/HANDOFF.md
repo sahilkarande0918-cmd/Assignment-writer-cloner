@@ -12,7 +12,7 @@
 - Windows 11, Node 24.13, npm 11.8, Python 3.11 available via `py -3.11`, RTX 5050 Laptop 8 GB.
 - Git identity: repository uses the owner's configured global identity (`sahilkarande0918-cmd`). Do not change it. No AI co-author trailers.
 - Remote: `origin https://github.com/sahilkarande0918-cmd/Assignment-writer-cloner.git`, branch `main`.
-- Env vars: see `.env.example`. `.env.local` exists locally with the owner's `GROQ_API_KEY` (git-ignored — never print or commit it).
+- Env vars: see `.env.example`. Neon values come from `neon env pull --project-id ancient-fog-17705922 --branch production -s postgres -s object-storage -s data-api` (Neon CLI signed in as the owner). `.env.local` exists locally with the owner's `GROQ_API_KEY` (git-ignored — never print or commit it).
 
 ## Checkpoint log
 | Phase | Commit message | SHA | Verified via |
