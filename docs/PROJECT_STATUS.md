@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 1 | Foundation, design system, dashboard shell | ✅ complete | `1b18c16` (verified via ls-remote) |
 | 2 | Secure imports, structural analysis, Groq planning | ✅ complete | `33b9218` (verified via ls-remote) |
-| 3 | Digital editing + deterministic export | ✅ complete | see HANDOFF |
+| 3 | Digital editing + deterministic export | ✅ complete | `cdb70dd` (verified via ls-remote) |
 | 4 | Handwriting worker, paper reconstruction, new assignments | ⏳ next | — |
 | 5 | Persistence, jobs, polish, deployment | ⏳ | — |
 
