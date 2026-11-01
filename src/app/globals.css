@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Design tokens: warm ivory paper, charcoal ink, muted bronze. */
+@theme {
+  --color-ivory: #f8f5ef;
+  --color-paper: #fffdf9;
+  --color-ink: #1b1a18;
+  --color-ink-2: #4a4740;
+  --color-muted: #6f695f;
+  --color-line: #e4ded3;
+  --color-line-strong: #cfc7b9;
+  --color-bronze: #8c6a43;
+  --color-bronze-ink: #7a5b38;
+  --color-ok: #3f6b4a;
+  --color-warn: #8a5a14;
+  --color-danger: #9b2c2c;
+
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-ivory);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: #e9dcc8;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-bronze);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Ruled notebook paper used by previews and illustrations. */
+.paper-ruled {
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(to right, transparent 13%, #d98c8c 13%, #d98c8c calc(13% + 1px), transparent calc(13% + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #b9cde0 27px, #b9cde0 28px);
+  background-position: 0 40px;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.9s var(--ease-out-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
