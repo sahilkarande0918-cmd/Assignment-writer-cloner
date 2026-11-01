@@ -20,6 +20,7 @@
 | 1 | feat(phase-1): build foundation and premium workspace | `1b18c16d68a75338ce417b74f938142fe6949ca7` | `git ls-remote origin main` matched 2026-11-01 |
 | 2 | feat(phase-2): implement document intake and Groq edit planning | `33b921834e32fa19537beb1f20cf09e54b0b124b` | `git ls-remote origin main` matched 2026-11-01 |
 | 3 | feat(phase-3): add layout-aware digital editor and exports | `cdb70dd660c92313a9731903185f735fa8a2eefb` | `git ls-remote origin main` matched 2026-11-02 |
+| 4 | feat(phase-4): integrate reference handwriting generation | `6f412e4c0a77d4a4bb4a9ed51c12695265cf7e50` | `git ls-remote origin main` matched 2026-11-02 |
 
 ## Changes since previous phase
 Phase 4: repo moved to `D:\Assignment writer_cloner` (out of OneDrive). Handwriting worker (`workers/handwriting`), job API (`src/app/api/jobs`, `src/app/api/worker`), `src/lib/server/jobs.ts`, `src/lib/hwjob.ts`, Generation panel, live/sim tests. `.env.local` now also holds a random `WORKER_TOKEN` (git-ignored).
