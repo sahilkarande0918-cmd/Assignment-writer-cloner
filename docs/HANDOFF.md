@@ -15,7 +15,7 @@
 ## Checkpoint log
 | Phase | Commit message | SHA | Verified via |
 |---|---|---|---|
-| 1 | feat(phase-1): build foundation and premium workspace | (filled after push) | `git ls-remote origin main` |
+| 1 | feat(phase-1): build foundation and premium workspace | `1b18c16d68a75338ce417b74f938142fe6949ca7` | `git ls-remote origin main` matched 2026-11-01 |
 
 ## Changes since previous phase
 Phase 1 is the first checkpoint (repository was empty).

@@ -2,7 +2,7 @@
 
 | Phase | Scope | State | Pushed SHA |
 |---|---|---|---|
-| 1 | Foundation, design system, dashboard shell | ✅ complete | see HANDOFF (recorded after push) |
+| 1 | Foundation, design system, dashboard shell | ✅ complete | `1b18c16` (verified via ls-remote) |
 | 2 | Secure imports, structural analysis, Groq planning | ⏳ next | — |
 | 3 | Digital editing + deterministic export | ⏳ | — |
 | 4 | Handwriting worker, paper reconstruction, new assignments | ⏳ | — |
