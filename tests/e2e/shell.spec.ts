@@ -59,7 +59,7 @@ test("upload card rejects an executable and accepts a PNG", async ({ page }) => 
   );
   await input.setInputFiles({ name: "page.png", mimeType: "image/png", buffer: png });
   await expect(page.getByText("page.png")).toBeVisible();
-  await expect(page.getByRole("img", { name: "Original page preview" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Original, page 1" })).toBeVisible({ timeout: 60_000 });
 });
 
 test("planning stays disabled and explains why", async ({ page }) => {

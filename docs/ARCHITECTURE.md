@@ -5,12 +5,12 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 ```
  Browser (Next.js client)                          Vercel (Next.js server)                 Owner's PC (optional)
  ┌──────────────────────────────┐   HTTPS          ┌───────────────────────────┐  HTTPS   ┌─────────────────────────┐
- │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ⏳2      │ ◀─────── │ workers/handwriting ⏳4  │
+ │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ✅       │ ◀─────── │ workers/handwriting ⏳4  │
  │ Upload validation ✅          │                  │ /api/projects, files ⏳5   │  poll    │  claim job → download    │
- │ PDF.js render/extract ⏳2     │                  │ /api/worker/* (token) ⏳4  │  only    │  generate/reconstruct    │
+ │ PDF.js render/extract ✅     │                  │ /api/worker/* (token) ⏳4  │  only    │  generate/reconstruct    │
  │ DOCX XML edit (JSZip) ⏳3     │                  └─────────┬─────────────────┘          │  upload artifacts        │
  │ pdf-lib export/overlay ⏳3    │                            │                            └─────────────────────────┘
- │ Tesseract OCR (wasm) ⏳2      │                   ┌────────▼────────┐  ┌──────────────────────┐
+ │ Tesseract OCR (wasm) ✅      │                   ┌────────▼────────┐  ┌──────────────────────┐
  │ IndexedDB local library ⏳5   │                   │ Neon Postgres ⏳5│  │ S3-compatible private │
  └──────────────────────────────┘                   │ (Drizzle)        │  │ object storage ⏳5    │
                                                      └─────────────────┘  └──────────────────────┘
@@ -26,7 +26,8 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 - `src/components/ui` — shadcn-style primitives on Radix (button, switch, badge, dialog usage).
 - `src/components/landing` — hero (lazy WebGL scene with static fallback), before/after teaser, reveal motion.
 - `src/components/studio` — studio shell: upload cards, inspector, composer, export dialog, paper preview.
-- `src/lib` — pure logic shared client/server: `formats.ts` (input matrix, signature sniffing, sanitising), `studio.ts` (modes, slots, layout maths).
+- `src/lib` — `formats.ts` (input matrix, signatures, sanitising), `studio.ts` (modes, slots, layout maths), `plan.ts` (Zod plan contract, prompt builder, deterministic resolver), `doc/` (model, PDF/DOCX/image/text loaders, OCR), `server/` (Groq client, request guard — server only).
+- `src/app/api` — `plan`, `transcribe`, `groq/status`.
 - `tests/unit` (Vitest), `tests/e2e` (Playwright desktop + mobile, axe).
 
 ## Data model (target, phase 5)

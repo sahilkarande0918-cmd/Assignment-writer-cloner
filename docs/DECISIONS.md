@@ -26,3 +26,15 @@ Installed as a Claude Code plugin (`ponytail@ponytail`); its hook and skills (`p
 
 ## ADR-009 Convert Handwriting as its own mode (owner request, 2026-11-01)
 Owner asked for: upload assignment 1 (content) + assignment 2 (handwriting) → assignment 1's content written in assignment 2's handwriting. It is a separate studio mode rather than a toggle inside Clone, because its inputs and checks differ: content comes from an OCR transcript of assignment 1 that the owner must review before generation (no instruction required), and assignment 2 is used for style only. Paper can come from assignment 1, assignment 2, or a labelled approximation; line breaks can be kept or reflowed. Pipeline: OCR (ph2) → transcript review (ph2) → style extraction + generation + composition (ph4) → OCR back-check vs transcript (ph4).
+
+## ADR-010 Plan contract: model proposes, code verifies (phase 2)
+Groq returns a flat, strict-mode-compatible JSON plan (every key required, nullable instead of optional). Every operation must quote the exact original text; `resolvePlan` checks it against the real spans and marks ok/ambiguous/unresolved/invalid. Ambiguous ops need the owner to pick an occurrence. Model output that fails Zod is retried once on `gpt-oss-120b`, then rejected. Document text is wrapped as untrusted data with tag neutralisation. Manual find & replace builds the same plan without AI.
+
+## ADR-011 Local OCR first, Groq vision only with consent (phase 2)
+Tesseract.js runs in the browser; the image never leaves the device (the English model file is fetched from the jsDelivr CDN on first use). Handwriting OCR is weak, so Convert mode offers "Improve transcript with Groq vision" behind an explicit consent checkbox; images are downscaled to fit Vercel's request limit.
+
+## ADR-012 DOCX preview via docx-preview (phase 2)
+`docx-preview` (Apache-2.0) renders an approximate view; edits will target the original XML runs, not the preview. Labelled approximate in the UI.
+
+## ADR-013 PDF.js assets served same-origin (phase 2)
+`scripts/copy-pdfjs.mjs` (postinstall) copies the worker, CMaps, standard fonts, wasm and ICC profiles into `public/pdfjs` (git-ignored). `fontExtraProperties: true` is required to read real font names.

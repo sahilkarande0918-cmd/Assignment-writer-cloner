@@ -17,5 +17,5 @@ IAM, CVL, RIMES, Bentham — licences/consent to be checked before any use; none
 `nvidia-smi`: NVIDIA GeForce RTX 5050 Laptop GPU, 8151 MiB, driver 616.64. Blackwell (sm_120) needs a CUDA 12.8+ PyTorch build — to confirm in phase 4.
 Python available: 3.11 (64-bit), 3.13, 3.14.
 
-## Groq (to verify in phase 2 with a key)
-Models from master prompt: `openai/gpt-oss-20b` (default), `openai/gpt-oss-120b`, `qwen/qwen3.8-27b` (vision). Availability must be checked via the models API at setup.
+## Groq (verified 2026-11-01 via models API, `node --env-file=.env.local scripts/groq-check.mjs`)
+`openai/gpt-oss-20b` ✅, `openai/gpt-oss-120b` ✅, `qwen/qwen3.8-27b` ✅ (only vision-capable model on the account). Strict `json_schema` responses worked for gpt-oss-20b in 10/10 live runs. gpt-oss spends completion tokens on hidden reasoning (≈600 tokens for a small request), so `max_completion_tokens` is 8192.
