@@ -66,3 +66,4 @@ workers/**/outputs/
 # local claude settings
 .claude/settings.local.json
 /public/pdfjs/
+/public/mupdf/

@@ -26,6 +26,8 @@ export function PlanPanel({
   onInclude,
   onChooseTarget,
   onDiscard,
+  onApply,
+  applying,
   applyBlockedReason,
   spanText,
 }: {
@@ -35,7 +37,9 @@ export function PlanPanel({
   onInclude: (id: string, on: boolean) => void;
   onChooseTarget: (opId: string, spanId: string) => void;
   onDiscard: () => void;
-  applyBlockedReason: string;
+  onApply: () => void;
+  applying: boolean;
+  applyBlockedReason?: string;
   spanText: (id: string) => string;
 }) {
   const { plan } = state;
@@ -68,11 +72,11 @@ export function PlanPanel({
         <Button variant="ghost" size="sm" onClick={onDiscard}>
           Discard plan
         </Button>
-        <Button size="sm" disabled title={applyBlockedReason}>
-          Apply {included.size} change{included.size === 1 ? "" : "s"}
+        <Button size="sm" disabled={!!applyBlockedReason || stale || applying || !included.size} title={applyBlockedReason} onClick={onApply}>
+          {applying ? "Applying…" : `Apply ${included.size} change${included.size === 1 ? "" : "s"}`}
         </Button>
       </div>
-      <p className="mt-1 text-right text-xs text-muted">{applyBlockedReason}</p>
+      {applyBlockedReason && <p className="mt-1 text-right text-xs text-muted">{applyBlockedReason}</p>}
     </section>
   );
 }

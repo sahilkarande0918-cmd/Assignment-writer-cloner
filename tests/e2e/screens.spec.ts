@@ -12,4 +12,9 @@ test("studio with a loaded PDF and a plan", async ({ page }, info) => {
   await page.getByLabel(/Replace with/).fill("Sahil Karande");
   await page.getByRole("button", { name: "Add to plan" }).click();
   await page.screenshot({ path: `test-results/screens/studio-pdf-${info.project.name}.png`, fullPage: true });
+  await page.getByRole("button", { name: /^Apply 1 change$/ }).click();
+  await expect(page.getByRole("region", { name: "What changed" }).getByText("verified", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Diff" }).click();
+  await expect(page.getByText(/% of pixels changed/)).toBeVisible();
+  await page.screenshot({ path: `test-results/screens/studio-applied-${info.project.name}.png` });
 });

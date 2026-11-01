@@ -29,7 +29,7 @@ test.describe("document intake", () => {
     await expect(page.getByText("ambiguous")).toBeVisible(); // appears on both pages
     await page.getByLabel("Choose which occurrence to change").selectOption({ index: 1 });
     await page.getByRole("button", { name: "Use this" }).click();
-    await expect(page.getByRole("button", { name: "Apply 1 change" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Apply 1 change" })).toBeEnabled();
     expect(errors).toEqual([]);
   });
 

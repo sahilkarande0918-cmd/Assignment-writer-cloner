@@ -5,11 +5,11 @@ Only results that were actually executed are recorded. "—" = not yet testable.
 ## Supported input formats
 | Format | Accepted | Signature check | Preview | Text extraction | Edit | Notes |
 |---|---|---|---|---|---|---|
-| PDF (digital) | ✅ | `%PDF-` | ✅ PDF.js page renders | ✅ lines + boxes + fonts | — (ph3) | corrupt rejected ✅ (E2E); password → message (code path, no fixture yet) |
-| PDF (scanned) | ✅ | same | ✅ | ✅ Tesseract OCR | — | |
-| DOCX | ✅ | ZIP + `[Content_Types]` + `word/document.xml` | ✅ docx-preview (approximate) | ✅ paragraphs + table cells | — | encrypted/macro/non-Word rejected ✅ (unit) |
-| PNG / JPEG / WEBP | ✅ | magic bytes | ✅ | ✅ OCR | — | |
-| TXT / MD | ✅ | no NUL bytes | ✅ text | ✅ | — | |
+| PDF (digital) | ✅ | `%PDF-` | ✅ PDF.js page renders | ✅ lines + boxes + fonts | ✅ native (MuPDF) | corrupt rejected ✅ (E2E); password → message (code path, no fixture yet) |
+| PDF (scanned) | ✅ | same | ✅ | ✅ Tesseract OCR | ✅ reconstruction | |
+| DOCX | ✅ | ZIP + `[Content_Types]` + `word/document.xml` | ✅ docx-preview (approximate) | ✅ paragraphs + table cells | ✅ native XML runs | encrypted/macro/non-Word rejected ✅ (unit) |
+| PNG / JPEG / WEBP | ✅ | magic bytes | ✅ | ✅ OCR | ✅ reconstruction | |
+| TXT / MD | ✅ | no NUL bytes | ✅ text | ✅ | ✅ line edits | |
 | EXE / ZIP / unknown | ❌ rejected ✅ | | | | | |
 Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image ≤ ~4 MB.
 
@@ -17,6 +17,24 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `digital-2page.pdf` — embedded Bitstream Vera subset, ruled 4×3 table, footer rule, 2 pages.
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
+
+## Results — phase 3 (executed 2026-11-02, Windows 11, Chromium headless 156, Python 3.13 readers)
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 46 passed, 10 skipped (live Groq, needs env) |
+| Lint / build | `npm run lint`, `npm run build` | pass |
+| E2E desktop + mobile (+ live Groq) | `GROQ_LIVE=1 npm run test:e2e` | 24 passed, 10 skipped (mobile duplicates + opt-in screenshots) |
+
+Key verified properties:
+- **Unchanged regions** (unit, `pdf-edit.test.ts`): pixel diff of original vs edited page renders at 144 dpi is **0 changed pixels** outside the edited line; page 2 identical; table-cell edit leaves **0 changed pixels** outside the cell's glyph box (borders intact).
+- **Fonts**: name replacement reuses `AAAAAA+BitstreamVeraSans-Roman` (all glyphs present in the document); "QZ-9X" (glyphs not in the subset) is substituted and reported.
+- **Overlap safety**: inserting a line where another line exists is refused; inserting below the last line succeeds.
+- **DOCX**: bold run formatting kept; every non-`document.xml` part byte-identical; header/footer intact after export (python-docx).
+- **Scans**: ink erased, ruled + margin lines preserved, 0 pixels changed outside the padded box (unit); E2E labels "Reconstruction — not exact".
+- **Exports reopened by independent readers** (`scripts/verify_exports.py`: PyMuPDF, python-docx, Pillow): native PDF (2 pages, edited text present, old text absent), PNG ZIP (2 × 1241×1754 at 150 dpi), JPEG (596×842 at 72 dpi), Letter typeset PDF (612×792), text-only DOCX, TXT, MD.
+- **Undo/redo** and **diff** (changed pixels > 0 and < 1 % for a name edit) exercised in E2E.
+
+Limits found: native PDF edits support Latin text only, unrotated pages, single-line changes (no multi-line reflow); DOCX→PDF needs the worker.
 
 ## Results — phase 2 (executed 2026-11-01, Windows 11, Chromium headless 156)
 | Suite | Command | Result |

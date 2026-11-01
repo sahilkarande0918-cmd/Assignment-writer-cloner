@@ -4,8 +4,8 @@
 |---|---|---|---|
 | 1 | Foundation, design system, dashboard shell | ✅ complete | `1b18c16` (verified via ls-remote) |
 | 2 | Secure imports, structural analysis, Groq planning | ✅ complete | `33b9218` (verified via ls-remote) |
-| 3 | Digital editing + deterministic export | ⏳ next | — |
-| 4 | Handwriting worker, paper reconstruction, new assignments | ⏳ | — |
+| 3 | Digital editing + deterministic export | ✅ complete | see HANDOFF |
+| 4 | Handwriting worker, paper reconstruction, new assignments | ⏳ next | — |
 | 5 | Persistence, jobs, polish, deployment | ⏳ | — |
 
 ## Owner-added requirement (2026-11-01)
@@ -21,11 +21,20 @@ Next.js 16 app, design tokens, landing (lazy WebGL hero + static fallback, befor
 - **Deterministic target resolution**: every op must quote real text; unique/ambiguous/unresolved/invalid statuses; table cells by coordinates; version id marks stale plans.
 - **UI**: page thumbnails + navigation, zoom, span overlays (selection + plan targets), extracted text panel with region selection, plan/diff panel (include/exclude, choose occurrence), manual find & replace without AI, Groq consent toggle, AI status badge, Convert transcript editor.
 
+## Phase 3 — done
+- **Native PDF edits** (MuPDF WASM, browser): text-only redaction of the changed glyphs (vector rules, table borders, underlines and images kept), redraw at the original baseline with the original embedded font when it has every glyph (subset-safe check), else a matching standard-14 font with a visible "font substituted" warning; tail runs keep their own fonts; width growth / page overflow warnings; new lines only into free space; rotated pages and non-Latin text refused with a reason.
+- **DOCX edits** on XML runs (formatting inherited, cross-run matches, table cells, paragraph insert/delete); every other package part byte-identical.
+- **Scans/photos**: erase-and-redraw reconstruction with ruled/margin line protection, always labelled "Reconstruction — not exact"; scanned PDFs replace only edited pages.
+- **TXT/MD** line edits.
+- **Versions**: immutable original (v0), version list, undo/redo (buttons + Ctrl+Z / Ctrl+Shift+Z), stale-plan refusal, post-apply verification (verified / not confirmed), change report with native/reconstruction and font status.
+- **Diff**: pixel diff for paged documents (changed-pixel %), line diff for DOCX/TXT.
+- **Exports**: PDF (native pass-through or typeset/imaged to A4/Letter), PNG/JPEG at 150/200/300 DPI (ZIP for multi-page), DOCX (native, or text-only best effort), TXT, MD. DOCX→PDF/PNG honestly unavailable (needs LibreOffice in the worker).
+
 ## Pending / clearly disabled in UI
-Applying edits, undo/redo, exports (phase 3); handwriting generation, paper reconstruction (phase 4); saving/library (phase 5).
+Handwriting generation, paper reconstruction (phase 4); saving/library (phase 5).
 
 ## Blockers
 - No Neon `DATABASE_URL` / storage credentials yet → phase 5 cloud persistence will fall back to IndexedDB until provided.
 
 ## Next action
-Phase 3: apply resolved plans — DOCX run-level XML edits, PDF edits (browser overlay path + worker PyMuPDF redaction path), version snapshots, undo/redo, diff toggle, PDF/PNG/JPEG/DOCX/TXT/MD exports.
+Phase 4: research/verify Reforge + DiffusionPen licences and weights (ask owner before multi-GB downloads), Python worker with outbound job polling, paper template reconstruction, Text → Assignment and Convert generation, OCR back-check, LibreOffice DOCX→PDF in worker.

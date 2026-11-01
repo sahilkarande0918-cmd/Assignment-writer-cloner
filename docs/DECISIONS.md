@@ -38,3 +38,17 @@ Tesseract.js runs in the browser; the image never leaves the device (the English
 
 ## ADR-013 PDF.js assets served same-origin (phase 2)
 `scripts/copy-pdfjs.mjs` (postinstall) copies the worker, CMaps, standard fonts, wasm and ICC profiles into `public/pdfjs` (git-ignored). `fontExtraProperties: true` is required to read real font names.
+
+## ADR-014 MuPDF.js (WASM) for native PDF edits and exports (phase 3)
+`mupdf@1.28.1` (Artifex, **AGPL-3.0-or-later**) runs in the browser and Node. It gives per-character fonts/positions, text-only redaction (`REDACT_LINE_ART_NONE`, `REDACT_IMAGE_NONE` — rules, borders, underlines and images survive), font embedding and page rendering. AGPL is acceptable for this private, source-available app; anyone distributing a modified hosted version must offer its source. Alternatives rejected: pdf-lib (cannot remove existing text), PyMuPDF-only (would make basic PDF edits depend on the optional worker). Its Node-only `import("module")` is aliased to `src/lib/node-stub.js` for browser builds.
+
+Font policy: redraw with the original embedded font when it can render every new glyph. Subset fonts (`ABCDEF+Name`) keep cmap entries for dropped glyphs, so for them only characters the document already draws with that font are trusted; otherwise a standard-14 font of the same class (serif/sans/mono, bold/italic) is used and the report says "font substituted". Only the changed glyphs through the end of the line are redacted and redrawn (tail keeps its own font runs). Width growth > 2 pt and page overflow are reported. New lines are inserted only into free space; otherwise refused. Rotated pages and non-Latin text are refused for native edits (reported).
+
+## ADR-015 DOCX edits on XML runs (phase 3)
+Matches are located across `w:t` nodes (tracked deletions skipped); the replacement inherits the run where the match starts; only `word/document.xml` is rewritten (all other parts byte-identical — unit-tested). New paragraphs clone the source paragraph's formatting. DOCX→PDF/PNG is unavailable in the browser (needs LibreOffice in the worker) and the export dialog says so.
+
+## ADR-016 Scans/photos: erase-and-redraw reconstruction (phase 3)
+Ink inside the OCR line box is masked (luminance below paper), long ruled/margin lines are protected, masked pixels are back-filled from the same column, then the new line is drawn once in a typed font with the sampled ink colour. Always labelled "Reconstruction — not exact". Handwritten redraw comes from the GPU worker in phase 4. Scanned PDFs: only edited pages are replaced by an image; other page objects are untouched.
+
+## ADR-017 Versions and undo (phase 3)
+Every apply produces a new immutable `File`; the original upload is version 0 and never modified. Undo/redo moves a cursor; applying after undo drops the redo branch. Plans carry the version id and are refused when stale. After each apply the new version is re-extracted and each change is marked verified / not confirmed.

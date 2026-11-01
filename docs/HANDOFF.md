@@ -19,8 +19,12 @@
 | 2 | feat(phase-2): implement document intake and Groq edit planning | `33b921834e32fa19537beb1f20cf09e54b0b124b` | `git ls-remote origin main` matched 2026-11-01 |
 
 ## Changes since previous phase
+Phase 3: `src/lib/edit/*` engines (MuPDF native PDF, DOCX XML runs, raster reconstruction, text), `src/lib/export.ts`, `src/lib/diff.ts`, versions/undo/redo/diff/report UI, working export dialog, `scripts/verify_exports.py`, `scripts/copy-assets.mjs` (renamed from copy-pdfjs; now also copies MuPDF to `public/mupdf`).
+
 Phase 2: document intake (PDF.js/JSZip/docx-preview/Tesseract), Groq plan + transcribe + status APIs, resolver, plan/diff UI, manual find & replace, Convert transcript, fixtures, live eval.
 
 ## Open issues
+- **OneDrive**: this repo lives in a OneDrive-synced folder. Builds/tests hung and left unkillable node processes until a reboot (sync holding handles on `.next`/`node_modules`). If it recurs: reboot or pause sync; long-term move the repo outside OneDrive.
+- MuPDF must not be bundled (Turbopack stalls on its 14 MB wasm): it is copied to `public/mupdf` by postinstall and imported at runtime with `webpackIgnore`.
 - Bash-tool heredocs mangle backslashes/quotes: write files with the Write tool.
 - Playwright needs `workers: 4` and 60 s timeout on this laptop; axe runs after animations settle.

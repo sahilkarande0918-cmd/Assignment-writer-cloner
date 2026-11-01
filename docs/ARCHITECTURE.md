@@ -8,8 +8,8 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
  │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ✅       │ ◀─────── │ workers/handwriting ⏳4  │
  │ Upload validation ✅          │                  │ /api/projects, files ⏳5   │  poll    │  claim job → download    │
  │ PDF.js render/extract ✅     │                  │ /api/worker/* (token) ⏳4  │  only    │  generate/reconstruct    │
- │ DOCX XML edit (JSZip) ⏳3     │                  └─────────┬─────────────────┘          │  upload artifacts        │
- │ pdf-lib export/overlay ⏳3    │                            │                            └─────────────────────────┘
+ │ DOCX XML edit (JSZip) ✅     │                  └─────────┬─────────────────┘          │  upload artifacts        │
+ │ MuPDF.js edit/export ✅      │                            │                            └─────────────────────────┘
  │ Tesseract OCR (wasm) ✅      │                   ┌────────▼────────┐  ┌──────────────────────┐
  │ IndexedDB local library ⏳5   │                   │ Neon Postgres ⏳5│  │ S3-compatible private │
  └──────────────────────────────┘                   │ (Drizzle)        │  │ object storage ⏳5    │
@@ -17,7 +17,7 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 ```
 
 ## Boundaries
-- **Browser** does all light document work (render, extract, DOCX run edits, overlay PDF edits, exports) so the studio works with no backend credentials and no 4.5 MB serverless body limit on files.
+- **Browser** does all light document work (render, extract, DOCX run edits, native PDF edits via MuPDF WASM, scan reconstruction, exports) so the studio works with no backend credentials and no 4.5 MB serverless body limit on files.
 - **Vercel server** only: Groq calls (key stays server-side), metadata/DB access, signed storage URLs, job queue endpoints. No PyTorch/LibreOffice/PyMuPDF there.
 - **Python worker** (local GPU, optional): handwriting generation, paper reconstruction (OpenCV), native PDF text replacement (PyMuPDF redaction that keeps line art/images). Reaches the server **outbound only**; never receives inbound connections; never holds DB credentials — only a restricted `WORKER_TOKEN`.
 
@@ -27,6 +27,7 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 - `src/components/landing` — hero (lazy WebGL scene with static fallback), before/after teaser, reveal motion.
 - `src/components/studio` — studio shell: upload cards, inspector, composer, export dialog, paper preview.
 - `src/lib` — `formats.ts` (input matrix, signatures, sanitising), `studio.ts` (modes, slots, layout maths), `plan.ts` (Zod plan contract, prompt builder, deterministic resolver), `doc/` (model, PDF/DOCX/image/text loaders, OCR), `server/` (Groq client, request guard — server only).
+- `src/lib/edit` — `ops.ts` (plan → per-span edits, text engine), `pdf.ts` (MuPDF native PDF edits), `docx.ts` (XML run edits), `raster.ts` (scan reconstruction), `apply.ts` (engine choice + verification). `src/lib/export.ts` (PDF/PNG/JPEG/ZIP/DOCX/TXT/MD), `src/lib/diff.ts`.
 - `src/app/api` — `plan`, `transcribe`, `groq/status`.
 - `tests/unit` (Vitest), `tests/e2e` (Playwright desktop + mobile, axe).
 

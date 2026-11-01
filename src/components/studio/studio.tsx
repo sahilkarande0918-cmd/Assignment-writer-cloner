@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Columns2, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Columns2, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, ScanEye, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -19,9 +19,16 @@ import { DocumentView } from "./document-view";
 import { TextPanel } from "./text-panel";
 import { ManualOperation, PlanPanel, type PlanState } from "./plan-panel";
 import { Transcript } from "./transcript";
+import { DiffView } from "./diff-view";
+import { applyPlan, verifyApplied, type OpReport } from "@/lib/edit/apply";
+import { exportDocument, exportUnavailable } from "@/lib/export";
+import { lineDiff } from "@/lib/diff";
+import type { ResolvedOp } from "@/lib/plan";
 
-const APPLY_PENDING = "Applying changes arrives with the document engine (next build).";
 type AiStatus = { configured: boolean; available?: Record<string, boolean>; error?: string } | null;
+/** An immutable edited version. The original upload is version 0 and is never modified. */
+type Version = { upload: Upload; label: string; method: string; ops: ResolvedOp[]; reports: OpReport[] };
+type History = { source?: Upload; versions: Version[]; cursor: number };
 
 export function Studio() {
   const [name, setName] = useState("Untitled assignment");
@@ -46,19 +53,74 @@ export function Studio() {
   const [transcript, setTranscript] = useState("");
   const [transcriptOk, setTranscriptOk] = useState(false);
 
-  const doc = useDocument(uploads.source);
+  const [history, setHistory] = useState<History>({ versions: [], cursor: 0 });
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string>();
+  const [showDiff, setShowDiff] = useState(false);
+  if (history.source !== uploads.source) setHistory({ source: uploads.source, versions: [], cursor: 0 });
+  const { versions, cursor } = history;
+  const currentVersion = cursor > 0 ? versions[cursor - 1] : undefined;
+
+  const original = useDocument(uploads.source);
+  const edited = useDocument(currentVersion?.upload);
+  const doc = currentVersion ? edited : original;
   const ready = doc.status === "ready" ? doc : undefined;
   const versionId = ready?.versionId;
+  const originalReady = original.status === "ready" ? original : undefined;
 
-  // New document version → reset page, selection, plan and (convert) transcript.
+  // New source → reset page and (convert) transcript; any new version → reset selection.
+  const [seenSource, setSeenSource] = useState<string>();
+  if (seenSource !== originalReady?.versionId) {
+    setSeenSource(originalReady?.versionId);
+    setPage(0);
+    setTranscript(originalReady ? docText(originalReady.loaded.model) : "");
+    setTranscriptOk(false);
+  }
   const [seenVersion, setSeenVersion] = useState<string>();
   if (seenVersion !== versionId) {
     setSeenVersion(versionId);
-    setPage(0);
     setSelected(new Set());
-    setTranscript(ready ? docText(ready.loaded.model) : "");
-    setTranscriptOk(false);
   }
+
+  async function apply() {
+    if (!ready || !planState || !uploads.source) return;
+    const ops = planState.plan.operations.filter((o) => included.has(o.id));
+    const file = currentVersion?.upload.file ?? uploads.source.file;
+    const kind = currentVersion?.upload.kind ?? uploads.source.kind;
+    setApplying(true);
+    setApplyError(undefined);
+    try {
+      const r = await applyPlan(file, kind, ready.loaded.model, ops);
+      if (!r.reports.some((x) => x.status === "applied")) throw new Error(r.reports.flatMap((x) => x.warnings).join(" ") || "Nothing could be applied.");
+      const newKind = r.file.type === "image/png" ? "png" : r.file.type === "image/jpeg" ? "jpeg" : kind;
+      const upload: Upload = { file: r.file, kind: newKind, url: URL.createObjectURL(r.file) };
+      setHistory((h) => {
+        const kept = h.versions.slice(0, h.cursor); // applying after undo drops the redo branch
+        return { ...h, versions: [...kept, { upload, label: planState.plan.summary, method: r.method, ops, reports: r.reports }], cursor: kept.length + 1 };
+      });
+      setPlanState(undefined);
+    } catch (e) {
+      setApplyError((e as Error).message);
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  const canUndo = cursor > 0 && !applying;
+  const canRedo = cursor < versions.length && !applying;
+  const undo = () => canUndo && setHistory((h) => ({ ...h, cursor: h.cursor - 1 }));
+  const redo = () => canRedo && setHistory((h) => ({ ...h, cursor: h.cursor + 1 }));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = (e.target as HTMLElement)?.closest("input, textarea, select, [contenteditable]");
+      if (typing || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   useEffect(() => {
     fetch("/api/groq/status")
@@ -166,16 +228,24 @@ export function Studio() {
             {ai === null ? "AI: checking" : ai.configured && !ai.error ? "AI: Groq ready" : "AI: not configured"}
           </Badge>
           <div className="ml-auto flex items-center gap-1">
-            <Button variant="ghost" size="sm" disabled aria-label="Undo" title="Nothing to undo">
+            <Button variant="ghost" size="sm" disabled={!canUndo} onClick={undo} aria-label="Undo" title="Undo (Ctrl+Z)">
               <Undo2 className="size-4" />
             </Button>
-            <Button variant="ghost" size="sm" disabled aria-label="Redo" title="Nothing to redo">
+            <Button variant="ghost" size="sm" disabled={!canRedo} onClick={redo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
               <Redo2 className="size-4" />
             </Button>
             <Link href="/library" className="hidden px-2 text-sm text-ink-2 hover:text-ink sm:inline">
               Library
             </Link>
-            <ExportDialog pageSize={layout.pageSize} disabledReason="Export needs the document engine, which is not built yet." />
+            <ExportDialog
+              pageSize={layout.pageSize}
+              disabledReason={!uploads.source ? "Add a document first." : !ready ? "Wait for the current version to finish loading." : undefined}
+              unavailable={(f) => (ready ? exportUnavailable(ready.loaded.model.kind, f) : null)}
+              onExport={async (req) => {
+                const up = currentVersion?.upload ?? uploads.source!;
+                return exportDocument({ bytes: new Uint8Array(await up.file.arrayBuffer()), kind: up.kind, model: ready!.loaded.model, name: name || up.file.name }, req);
+              }}
+            />
           </div>
         </div>
         <nav aria-label="Studio mode" className="flex gap-1 overflow-x-auto border-t border-line px-3 sm:px-5">
@@ -226,6 +296,22 @@ export function Studio() {
               {!composing && (
                 <Button variant="ghost" size="sm" aria-pressed={split} onClick={() => setSplit(!split)} className="aria-pressed:bg-line/70">
                   <Columns2 className="size-4" aria-hidden /> Split view
+                </Button>
+              )}
+              {!composing && mode !== "convert" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={showDiff}
+                  disabled={!currentVersion}
+                  title={currentVersion ? "Highlight what changed against the original" : "Available after the first applied change"}
+                  onClick={() => {
+                    setShowDiff(!showDiff);
+                    setSplit(true);
+                  }}
+                  className="aria-pressed:bg-line/70"
+                >
+                  <ScanEye className="size-4" aria-hidden /> Diff
                 </Button>
               )}
               {pageCount > 1 && (
@@ -283,13 +369,13 @@ export function Studio() {
                   <figure className="min-w-0">
                     <figcaption className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-2">{mode === "convert" ? "Assignment 1 — content" : "Original"}</figcaption>
                     <DocumentView
-                      state={doc}
+                      state={original}
                       file={uploads.source.file}
                       page={page}
                       zoom={zoom}
                       label="Original"
-                      marks={{ selected, targets }}
-                      onSpan={scope === "selection" && mode !== "convert" ? toggleSpan : undefined}
+                      marks={currentVersion ? undefined : { selected, targets }}
+                      onSpan={!currentVersion && scope === "selection" && mode !== "convert" ? toggleSpan : undefined}
                     />
                   </figure>
                   {split &&
@@ -297,10 +383,31 @@ export function Studio() {
                       <ConvertPlaceholder hasStyle={!!uploads.reference} />
                     ) : (
                       <figure className="min-w-0">
-                        <figcaption className="mb-2 flex justify-between text-xs uppercase tracking-[0.14em] text-ink-2">
-                          Edited <span className="normal-case tracking-normal text-muted">No edits applied yet</span>
+                        <figcaption className="mb-2 flex justify-between gap-2 text-xs uppercase tracking-[0.14em] text-ink-2">
+                          {showDiff && currentVersion ? "Changes" : "Edited"}
+                          <span className="truncate normal-case tracking-normal text-muted">
+                            {currentVersion ? `Version ${cursor} of ${versions.length} · ${currentVersion.method}` : "No edits applied yet"}
+                          </span>
                         </figcaption>
-                        <DocumentView state={doc} file={uploads.source.file} page={page} zoom={zoom} label="Edited" />
+                        {!currentVersion ? (
+                          <DocumentView state={original} file={uploads.source.file} page={page} zoom={zoom} label="Edited" />
+                        ) : showDiff && originalReady && ready ? (
+                          ready.loaded.previews[page] && originalReady.loaded.previews[page] ? (
+                            <DiffView before={originalReady.loaded.previews[page].url} after={ready.loaded.previews[page].url} label={`Changes on page ${page + 1}`} />
+                          ) : (
+                            <TextDiff a={originalReady.loaded.model.spans.map((s) => s.text)} b={ready.loaded.model.spans.map((s) => s.text)} />
+                          )
+                        ) : (
+                          <DocumentView
+                            state={edited}
+                            file={currentVersion.upload.file}
+                            page={page}
+                            zoom={zoom}
+                            label="Edited"
+                            marks={{ selected, targets }}
+                            onSpan={scope === "selection" ? toggleSpan : undefined}
+                          />
+                        )}
                       </figure>
                     ))}
                 </div>
@@ -357,13 +464,46 @@ export function Studio() {
               }
               onChooseTarget={chooseTarget}
               onDiscard={() => setPlanState(undefined)}
-              applyBlockedReason={APPLY_PENDING}
+              onApply={apply}
+              applying={applying}
+              applyBlockedReason={
+                composing || mode === "convert"
+                  ? "Writing new pages needs the handwriting worker — this plan only prepares the text."
+                  : !ready
+                    ? "Wait for the document to finish loading."
+                    : undefined
+              }
               spanText={(id) => planSpans.find((s) => s.id === id)?.text ?? id}
             />
           )}
+          {applyError && (
+            <p role="alert" className="rounded-xl border border-danger/30 bg-paper p-3 text-sm text-danger">
+              {applyError}
+            </p>
+          )}
+          {currentVersion && !composing && mode !== "convert" && <ChangeReport version={currentVersion} state={edited} />}
         </div>
 
         <aside aria-label="Side panel" className={cn("space-y-3 lg:block", !inspectorOpen && "lg:hidden")}>
+          {uploads.source && versions.length > 0 && (
+            <details open className="rounded-2xl border border-line bg-paper p-4">
+              <summary className="cursor-pointer text-sm font-medium">Versions ({versions.length + 1})</summary>
+              <ol className="mt-3 space-y-1 text-xs">
+                {[{ label: "Original (never modified)" }, ...versions].map((v, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      aria-current={i === cursor ? "true" : undefined}
+                      onClick={() => setHistory((h) => ({ ...h, cursor: i }))}
+                      className="w-full truncate rounded px-2 py-1.5 text-left hover:bg-ivory aria-[current=true]:bg-[#efe3cf]/70 aria-[current=true]:font-medium"
+                    >
+                      {i}. {v.label}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
           {ready && mode !== "convert" && (
             <details open className="rounded-2xl border border-line bg-paper p-4">
               <summary className="cursor-pointer text-sm font-medium">Document</summary>
@@ -411,6 +551,60 @@ export function Studio() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ChangeReport({ version, state }: { version: Version; state: ReturnType<typeof useDocument> }) {
+  const checked = state.status === "ready" ? verifyApplied(state.loaded.model, version.ops, version.reports) : null;
+  const rows = checked ?? version.reports.map((r) => ({ ...r, verified: undefined }));
+  return (
+    <section aria-labelledby="report-h" className="rounded-2xl border border-line bg-paper p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="report-h" className="font-display text-2xl">
+          What changed
+        </h2>
+        <Badge tone={version.method === "native" ? "ok" : version.method === "text" ? "neutral" : "warn"}>
+          {version.method === "native" ? "Native edit" : version.method === "text" ? "Text edit" : "Reconstruction — not exact"}
+        </Badge>
+      </div>
+      <ul className="mt-3 space-y-2 text-sm">
+        {rows.map((r, i) => {
+          const op = version.ops.find((o) => o.id === r.opId);
+          return (
+            <li key={`${r.opId}-${i}`} className="rounded-xl border border-line p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{op ? `${op.match || "(new line)"} → ${op.replacement || "(removed)"}` : r.opId}</span>
+                <Badge tone={r.status === "applied" ? "ok" : "danger"}>{r.status}</Badge>
+                {r.status === "applied" && r.verified !== undefined && (
+                  <Badge tone={r.verified ? "ok" : "warn"} title="Checked by re-reading the new version">
+                    {r.verified ? "verified" : "not confirmed"}
+                  </Badge>
+                )}
+                {r.font && (
+                  <Badge tone={r.font.reused ? "ok" : "warn"}>{r.font.reused ? "original font" : `font substituted: ${r.font.substitute}`}</Badge>
+                )}
+              </div>
+              {r.warnings.length > 0 && <p className="mt-1.5 text-xs text-warn">{r.warnings.join(" ")}</p>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function TextDiff({ a, b }: { a: string[]; b: string[] }) {
+  const rows = lineDiff(a, b).filter((d, i, all) => d.kind !== "same" || all[i - 1]?.kind !== "same" || all[i + 1]?.kind !== "same");
+  return (
+    <ol aria-label="Text changes" className="max-h-[70vh] space-y-0.5 overflow-auto rounded-sm bg-paper p-4 font-mono text-xs leading-relaxed">
+      {rows.map((d, i) => (
+        <li key={i} className={d.kind === "add" ? "bg-[#dcebdc] text-ok" : d.kind === "del" ? "bg-[#f3d9d9] text-danger line-through" : "text-muted"}>
+          <span aria-hidden>{d.kind === "add" ? "+ " : d.kind === "del" ? "− " : "  "}</span>
+          <span className="sr-only">{d.kind === "add" ? "added: " : d.kind === "del" ? "removed: " : ""}</span>
+          {d.text}
+        </li>
+      ))}
+    </ol>
   );
 }
 
