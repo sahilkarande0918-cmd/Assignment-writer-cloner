@@ -11,7 +11,10 @@
     "test:e2e": "playwright test",
     "typecheck": "next typegen && tsc --noEmit",
     "postinstall": "node scripts/copy-assets.mjs",
-    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/live --silent=false --disableConsoleIntercept"
+    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/live --silent=false --disableConsoleIntercept",
+    "test:int": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run tests/integration",
+    "db:migrate:dev": "node --env-file=.env.test.local node_modules/drizzle-kit/bin.cjs migrate",
+    "db:migrate:prod": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",
@@ -22,6 +25,7 @@
     "@react-three/fiber": "^9.8.2",
     "clsx": "^2.1.1",
     "docx-preview": "^0.4.1",
+    "drizzle-orm": "^0.45.4",
     "groq-sdk": "^1.6.0",
     "jszip": "^3.10.2",
     "lucide-react": "^1.66.0",
@@ -46,6 +50,7 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "jsdom": "^29.1.1",

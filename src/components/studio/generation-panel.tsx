@@ -15,7 +15,7 @@ type Check = { cer: number; missed: string[] };
 export type GeneratedSet = { pages: string[]; ink: string[]; paper?: string };
 
 /** Split a job's artifacts into composite pages, ink-only layers and the paper-only template. */
-function artifactSet(id: string, names: string[]): GeneratedSet {
+export function artifactSet(id: string, names: string[]): GeneratedSet {
   const url = (n: string) => `/api/jobs/${id}/artifacts/${n}`;
   return { pages: names.filter((n) => n.startsWith("page-")).map(url), ink: names.filter((n) => n.startsWith("ink-")).map(url), paper: names.includes("paper.png") ? url("paper.png") : undefined };
 }
@@ -35,6 +35,7 @@ export function GenerationPanel({
   reference,
   paper,
   layout,
+  projectId,
   onPages,
 }: {
   text: string;
@@ -42,6 +43,7 @@ export function GenerationPanel({
   reference?: Upload;
   paper?: { upload: Upload; page: number };
   layout: LayoutSettings;
+  projectId: string | null;
   onPages: (v: GeneratedSet) => void;
 }) {
   const [worker, setWorker] = useState<Worker>();
@@ -101,6 +103,7 @@ export function GenerationPanel({
       };
       const form = new FormData();
       form.set("payload", JSON.stringify(payload));
+      if (projectId) form.set("projectId", projectId);
       form.set("reference", await pageImage(reference.file, reference.kind), "reference.jpg");
       if (paper) form.set("paper", await pageImage(paper.upload.file, paper.upload.kind, paper.page), "paper.jpg");
       const r = await fetch("/api/jobs", { method: "POST", body: form, headers: { "idempotency-key": crypto.randomUUID() } });

@@ -1,9 +1,10 @@
-import { failJob, workerAuth } from "@/lib/server/jobs";
+import { failJob } from "@/lib/server/jobs";
+import { uuidOk, workerRoute } from "@/lib/server/http";
 
-export async function POST(req: Request, ctx: RouteContext<"/api/worker/jobs/[id]/fail">) {
-  const auth = workerAuth(req);
-  if (auth instanceof Response) return auth;
+export const POST = workerRoute(async (req, ctx: RouteContext<"/api/worker/jobs/[id]/fail">, workerId) => {
+  const { id } = await ctx.params;
   const body = (await req.json().catch(() => null)) as { error?: string; retryable?: boolean } | null;
-  const r = failJob((await ctx.params).id, auth.workerId, String(body?.error ?? "Unknown worker error"), !!body?.retryable);
+  if (!uuidOk(id)) return Response.json({ error: "Invalid job id." }, { status: 400 });
+  const r = await failJob(id, workerId, String(body?.error ?? "Unknown worker error"), !!body?.retryable);
   return r === "ok" ? Response.json({ ok: true }) : Response.json({ error: r }, { status: 409 });
-}
+});

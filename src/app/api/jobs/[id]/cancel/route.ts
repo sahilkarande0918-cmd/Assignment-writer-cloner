@@ -1,8 +1,7 @@
 import { cancelJob } from "@/lib/server/jobs";
-import { guard } from "@/lib/server/guard";
+import { ownerRoute, uuidOk } from "@/lib/server/http";
 
-export async function POST(req: Request, ctx: RouteContext<"/api/jobs/[id]/cancel">) {
-  const blocked = guard(req, 1_000);
-  if (blocked) return blocked;
-  return cancelJob((await ctx.params).id) ? Response.json({ ok: true }) : Response.json({ error: "This job can no longer be cancelled." }, { status: 409 });
-}
+export const POST = ownerRoute(async (_req, ctx: RouteContext<"/api/jobs/[id]/cancel">) => {
+  const { id } = await ctx.params;
+  return uuidOk(id) && (await cancelJob(id)) ? Response.json({ ok: true }) : Response.json({ error: "This job can no longer be cancelled." }, { status: 409 });
+});

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { ButtonLink } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { LibraryView } from "@/components/library/library-view";
 
 export const metadata: Metadata = { title: "Library" };
 
@@ -17,16 +17,7 @@ export default function LibraryPage() {
           </div>
           <ButtonLink href="/studio">New project</ButtonLink>
         </div>
-        <div className="grid min-h-[40vh] place-items-center py-16 text-center">
-          <div className="max-w-md">
-            <Badge tone="pending">Saving not built yet</Badge>
-            <p className="mt-5 font-display text-3xl">No saved projects yet.</p>
-            <p className="mt-3 text-ink-2">
-              Projects will keep their source, reference, edit history, snapshots and outputs. At least ten complete projects are supported, and saved projects never expire
-              automatically.
-            </p>
-          </div>
-        </div>
+        <LibraryView />
       </main>
     </>
   );

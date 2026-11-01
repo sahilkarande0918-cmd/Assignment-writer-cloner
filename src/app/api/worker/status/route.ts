@@ -1,7 +1,4 @@
-import { connection } from "next/server";
 import { workerOnline } from "@/lib/server/jobs";
+import { ownerRoute } from "@/lib/server/http";
 
-export async function GET() {
-  await connection();
-  return Response.json({ ...workerOnline(), enabled: !!process.env.WORKER_TOKEN });
-}
+export const GET = ownerRoute(async () => Response.json({ ...(await workerOnline()), enabled: !!process.env.WORKER_TOKEN }));

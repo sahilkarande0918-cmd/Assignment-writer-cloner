@@ -19,7 +19,11 @@ import { DocumentView } from "./document-view";
 import { TextPanel } from "./text-panel";
 import { ManualOperation, PlanPanel, type PlanState } from "./plan-panel";
 import { Transcript } from "./transcript";
-import { GenerationPanel, type GeneratedSet } from "./generation-panel";
+import { GenerationPanel, artifactSet, type GeneratedSet } from "./generation-panel";
+import { useCloudProject, type SaveState } from "./use-cloud";
+import { fetchFile } from "@/lib/cloud";
+import { SignOut } from "@/components/sign-out";
+import type { InputKind } from "@/lib/formats";
 import { DiffView } from "./diff-view";
 import { applyPlan, verifyApplied, type OpReport } from "@/lib/edit/apply";
 import { exportDocument, exportUnavailable } from "@/lib/export";
@@ -30,6 +34,17 @@ type AiStatus = { configured: boolean; available?: Record<string, boolean>; erro
 /** An immutable edited version. The original upload is version 0 and is never modified. */
 type Version = { upload: Upload; label: string; method: string; ops: ResolvedOp[]; reports: OpReport[] };
 type History = { source?: Upload; versions: Version[]; cursor: number };
+type SavedSettings = { textToAssignment: boolean; instruction: string; content: string; scope: "document" | "selection"; layout: LayoutSettings; transcript: string; transcriptOk: boolean };
+
+const SAVE_BADGE: Record<SaveState, { tone: "pending" | "ok" | "warn" | "danger" | "neutral"; text: string }> = {
+  local: { tone: "pending", text: "Not saved yet" },
+  loading: { tone: "neutral", text: "Opening…" },
+  saving: { tone: "neutral", text: "Saving…" },
+  saved: { tone: "ok", text: "Saved" },
+  error: { tone: "danger", text: "Save failed" },
+  conflict: { tone: "warn", text: "Changed elsewhere" },
+  unavailable: { tone: "pending", text: "Local only" },
+};
 
 export function Studio() {
   const [name, setName] = useState("Untitled assignment");
@@ -54,6 +69,11 @@ export function Studio() {
   const [transcript, setTranscript] = useState("");
   const [transcriptOk, setTranscriptOk] = useState(false);
   const [generated, setGenerated] = useState<GeneratedSet>({ pages: [], ink: [] });
+  const cloud = useCloudProject();
+  const loadProject = cloud.load;
+  const [initialId] = useState(cloud.projectId);
+  const [loaded, setLoaded] = useState(!initialId);
+  const [restoredText, setRestoredText] = useState<{ transcript: string; transcriptOk: boolean } | null>(null);
 
   const [history, setHistory] = useState<History>({ versions: [], cursor: 0 });
   const [applying, setApplying] = useState(false);
@@ -75,9 +95,77 @@ export function Studio() {
   if (seenSource !== originalReady?.versionId) {
     setSeenSource(originalReady?.versionId);
     setPage(0);
-    setTranscript(originalReady ? docText(originalReady.loaded.model) : "");
-    setTranscriptOk(false);
+    if (restoredText && originalReady) {
+      // Reopened project: keep the saved (possibly corrected) transcript instead of the fresh extraction.
+      setTranscript(restoredText.transcript);
+      setTranscriptOk(restoredText.transcriptOk);
+      setRestoredText(null);
+    } else {
+      setTranscript(originalReady ? docText(originalReady.loaded.model) : "");
+      setTranscriptOk(false);
+    }
   }
+
+  // Reopen a saved project (?project=id): settings, latest inputs, every version, last generated pages.
+  useEffect(() => {
+    if (!initialId) return;
+    let live = true;
+    (async () => {
+      const p = await loadProject();
+      if (!p || !live) return;
+      const st = p.project.settings as Partial<SavedSettings>;
+      setName(p.project.name);
+      setMode(p.project.mode as Mode);
+      if (st.textToAssignment !== undefined) setTextToAssignment(st.textToAssignment);
+      setInstruction(st.instruction ?? "");
+      setContent(st.content ?? "");
+      setScope(st.scope ?? "document");
+      if (st.layout) setLayout({ ...DEFAULT_LAYOUT, ...st.layout });
+      if (st.transcript !== undefined) setRestoredText({ transcript: st.transcript, transcriptOk: !!st.transcriptOk });
+      const toUpload = async (f: (typeof p.files)[number]): Promise<Upload> => {
+        const file = await fetchFile(f);
+        return { file, kind: (f.kind ?? "pdf") as InputKind, url: URL.createObjectURL(file) };
+      };
+      const ups: Partial<Record<Slot, Upload>> = {};
+      for (const slot of ["source", "reference", "paper"] as const) {
+        const f = [...p.files].reverse().find((x) => x.slot === slot);
+        if (f) ups[slot] = await toUpload(f);
+      }
+      const vers: Version[] = [];
+      for (const v of p.versions)
+        if (v.file)
+          vers.push({
+            upload: await toUpload(v.file),
+            label: v.label,
+            method: v.method,
+            ops: v.operations.map((o) => o.op as ResolvedOp),
+            reports: v.operations.map((o) => o.report as OpReport),
+          });
+      if (!live) return;
+      setUploads(ups);
+      setHistory({ source: ups.source, versions: vers, cursor: Math.min(p.project.cursor, vers.length) });
+      const job = p.jobs.find((j) => j.status === "succeeded" && j.manifest);
+      const names = ((job?.manifest as { artifacts?: { name: string }[] } | null)?.artifacts ?? []).map((a) => a.name);
+      if (job && names.length) setGenerated(artifactSet(job.id, names));
+      setLoaded(true);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [initialId, loadProject]);
+
+  // Autosave text and settings (debounced). Files and versions are saved as they are created.
+  const savedJson = JSON.stringify({ name, mode, cursor: history.cursor, settings: { textToAssignment, instruction, content, scope, layout, transcript, transcriptOk } satisfies SavedSettings });
+  const hasWork = !!(uploads.source || uploads.reference || content.trim() || instruction.trim());
+  useEffect(() => {
+    if (!loaded || !hasWork) return;
+    const t = window.setTimeout(async () => {
+      if (!cloud.projectId) await cloud.ensure(name, mode);
+      cloud.save(JSON.parse(savedJson));
+    }, 1200);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedJson captures every saved field
+  }, [savedJson, loaded, hasWork, cloud.projectId]);
   const [seenVersion, setSeenVersion] = useState<string>();
   if (seenVersion !== versionId) {
     setSeenVersion(versionId);
@@ -96,10 +184,12 @@ export function Studio() {
       if (!r.reports.some((x) => x.status === "applied")) throw new Error(r.reports.flatMap((x) => x.warnings).join(" ") || "Nothing could be applied.");
       const newKind = r.file.type === "image/png" ? "png" : r.file.type === "image/jpeg" ? "jpeg" : kind;
       const upload: Upload = { file: r.file, kind: newKind, url: URL.createObjectURL(r.file) };
+      const index = history.cursor + 1;
       setHistory((h) => {
         const kept = h.versions.slice(0, h.cursor); // applying after undo drops the redo branch
         return { ...h, versions: [...kept, { upload, label: planState.plan.summary, method: r.method, ops, reports: r.reports }], cursor: kept.length + 1 };
       });
+      cloud.saveVersion(r.file, index, planState.plan.summary, r.method, ops.map((op) => ({ op, report: r.reports.find((x) => x.opId === op.id) ?? null })));
       setPlanState(undefined);
     } catch (e) {
       setApplyError((e as Error).message);
@@ -221,8 +311,12 @@ export function Studio() {
             onChange={(e) => setName(e.target.value)}
             className="min-w-0 max-w-[40vw] flex-1 truncate rounded-md bg-transparent px-1.5 py-1 text-sm font-medium hover:bg-line/50 focus:bg-paper sm:max-w-xs sm:flex-none"
           />
-          <Badge tone="pending" className="hidden whitespace-nowrap sm:inline-flex" title="Saving to the library is not built yet">
-            Unsaved draft
+          <Badge
+            tone={SAVE_BADGE[cloud.state].tone}
+            className="hidden whitespace-nowrap sm:inline-flex"
+            title={cloud.error ?? (cloud.state === "local" ? "Saves automatically once you add a document or text" : undefined)}
+          >
+            {SAVE_BADGE[cloud.state].text}
           </Badge>
           <Badge
             tone={ai?.configured && !ai.error ? "ok" : "pending"}
@@ -241,6 +335,7 @@ export function Studio() {
             <Link href="/library" className="hidden px-2 text-sm text-ink-2 hover:text-ink sm:inline">
               Library
             </Link>
+            <SignOut className="hidden px-2 text-sm text-ink-2 hover:text-ink md:inline" />
             <ExportDialog
               pageSize={layout.pageSize}
               disabledReason={!uploads.source ? "Add a document first." : !ready ? "Wait for the current version to finish loading." : undefined}
@@ -285,7 +380,15 @@ export function Studio() {
             </div>
           )}
           {slots.map((spec) => (
-            <UploadCard key={`${mode}-${spec.slot}`} spec={spec} value={uploads[spec.slot]} onChange={(u) => setUploads((p) => ({ ...p, [spec.slot]: u }))} />
+            <UploadCard
+              key={`${mode}-${spec.slot}`}
+              spec={spec}
+              value={uploads[spec.slot]}
+              onChange={(u) => {
+                setUploads((p) => ({ ...p, [spec.slot]: u }));
+                if (u) cloud.upload(name, mode, spec.slot, u.file);
+              }}
+            />
           ))}
           {mode !== "digital" && (
             <p className="px-1 text-xs leading-relaxed text-muted">
@@ -477,6 +580,7 @@ export function Studio() {
                       : undefined
               }
               layout={layout}
+              projectId={cloud.projectId}
               onPages={setGenerated}
             />
           )}

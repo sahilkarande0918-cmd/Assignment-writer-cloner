@@ -1,8 +1,8 @@
-import { heartbeat, workerAuth } from "@/lib/server/jobs";
+import { heartbeat } from "@/lib/server/jobs";
+import { uuidOk, workerRoute } from "@/lib/server/http";
 
-export async function POST(req: Request, ctx: RouteContext<"/api/worker/jobs/[id]/heartbeat">) {
-  const auth = workerAuth(req);
-  if (auth instanceof Response) return auth;
-  const r = heartbeat((await ctx.params).id, auth.workerId);
+export const POST = workerRoute(async (_req, ctx: RouteContext<"/api/worker/jobs/[id]/heartbeat">, workerId) => {
+  const { id } = await ctx.params;
+  const r = uuidOk(id) ? await heartbeat(id, workerId) : null;
   return r ? Response.json(r) : Response.json({ error: "Lease not held." }, { status: 409 });
-}
+});

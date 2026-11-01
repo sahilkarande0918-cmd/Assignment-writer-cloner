@@ -72,3 +72,6 @@ workers/**/outputs/
 /workers/handwriting/models/
 /workers/handwriting/*.log
 /workers/handwriting/out/
+
+# owner password (plaintext, local only)
+/.owner-password

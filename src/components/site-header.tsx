@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
+import { SignOut } from "@/components/sign-out";
 
 export function SiteHeader({ current }: { current?: "studio" | "library" }) {
   const link = (href: string, label: string, key: string) => (
@@ -20,6 +21,7 @@ export function SiteHeader({ current }: { current?: "studio" | "library" }) {
         <nav aria-label="Primary" className="flex items-center gap-5 sm:gap-8">
           {link("/studio", "Studio", "studio")}
           {link("/library", "Library", "library")}
+          {current && <SignOut />}
           <ButtonLink href="/studio" size="sm" className="hidden sm:inline-flex">
             New project
           </ButtonLink>
