@@ -7,6 +7,8 @@
 4. `npm run lint && npm test && npm run build && npm run test:e2e` (add `GROQ_LIVE=1` for the live E2E plan; `npm run test:live` for the 10-command Groq eval)
 
 ## Environment
+- Repo path: `D:\Assignment writer_cloner` (moved from OneDrive on 2026-11-02).
+- Worker: `workers\handwriting\setup.ps1` then `run-worker.ps1 -Api http://localhost:3000`; live tests need it polling.
 - Windows 11, Node 24.13, npm 11.8, Python 3.11 available via `py -3.11`, RTX 5050 Laptop 8 GB.
 - Git identity: repository uses the owner's configured global identity (`sahilkarande0918-cmd`). Do not change it. No AI co-author trailers.
 - Remote: `origin https://github.com/sahilkarande0918-cmd/Assignment-writer-cloner.git`, branch `main`.
@@ -20,11 +22,14 @@
 | 3 | feat(phase-3): add layout-aware digital editor and exports | `cdb70dd660c92313a9731903185f735fa8a2eefb` | `git ls-remote origin main` matched 2026-11-02 |
 
 ## Changes since previous phase
+Phase 4: repo moved to `D:\Assignment writer_cloner` (out of OneDrive). Handwriting worker (`workers/handwriting`), job API (`src/app/api/jobs`, `src/app/api/worker`), `src/lib/server/jobs.ts`, `src/lib/hwjob.ts`, Generation panel, live/sim tests. `.env.local` now also holds a random `WORKER_TOKEN` (git-ignored).
+
 Phase 3: `src/lib/edit/*` engines (MuPDF native PDF, DOCX XML runs, raster reconstruction, text), `src/lib/export.ts`, `src/lib/diff.ts`, versions/undo/redo/diff/report UI, working export dialog, `scripts/verify_exports.py`, `scripts/copy-assets.mjs` (renamed from copy-pdfjs; now also copies MuPDF to `public/mupdf`).
 
 Phase 2: document intake (PDF.js/JSZip/docx-preview/Tesseract), Groq plan + transcribe + status APIs, resolver, plan/diff UI, manual find & replace, Convert transcript, fixtures, live eval.
 
 ## Open issues
+- Background `next start`/worker processes can outlive their task wrapper on Windows; kill by command line (`next start -p 3100`, `worker.py`) before restarting.
 - **OneDrive**: this repo lives in a OneDrive-synced folder. Builds/tests hung and left unkillable node processes until a reboot (sync holding handles on `.next`/`node_modules`). If it recurs: reboot or pause sync; long-term move the repo outside OneDrive.
 - MuPDF must not be bundled (Turbopack stalls on its 14 MB wasm): it is copied to `public/mupdf` by postinstall and imported at runtime with `webpackIgnore`.
 - Bash-tool heredocs mangle backslashes/quotes: write files with the Write tool.

@@ -5,9 +5,9 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 ```
  Browser (Next.js client)                          Vercel (Next.js server)                 Owner's PC (optional)
  ┌──────────────────────────────┐   HTTPS          ┌───────────────────────────┐  HTTPS   ┌─────────────────────────┐
- │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ✅       │ ◀─────── │ workers/handwriting ⏳4  │
+ │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ✅       │ ◀─────── │ workers/handwriting ✅  │
  │ Upload validation ✅          │                  │ /api/projects, files ⏳5   │  poll    │  claim job → download    │
- │ PDF.js render/extract ✅     │                  │ /api/worker/* (token) ⏳4  │  only    │  generate/reconstruct    │
+ │ PDF.js render/extract ✅     │                  │ /api/worker/* (token) ✅   │  only    │  generate/reconstruct    │
  │ DOCX XML edit (JSZip) ✅     │                  └─────────┬─────────────────┘          │  upload artifacts        │
  │ MuPDF.js edit/export ✅      │                            │                            └─────────────────────────┘
  │ Tesseract OCR (wasm) ✅      │                   ┌────────▼────────┐  ┌──────────────────────┐
@@ -34,5 +34,12 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 ## Data model (target, phase 5)
 `owner` (single-user config) · `projects` · `source_files` · `reference_styles` · `document_versions` (immutable snapshots, version id for optimistic locking) · `operations` (validated plan ops + status) · `render_jobs` (queued/running/succeeded/failed/cancelled, lease, heartbeat, attempts, idempotency key) · `output_artifacts` (checksum, mime, storage key).
 
-## Job protocol (target, phase 4/5)
+## Job protocol (phase 4: in-memory store; phase 5: Neon)
 `POST /api/worker/claim` (Bearer WORKER_TOKEN) → leases one queued job for N seconds → worker heartbeats → uploads artifacts with sha256 → `complete`/`fail`. Expired leases return to the queue until the retry budget is spent. Worker offline ⇒ job stays `queued` and the UI says so.
+
+## Handwriting worker (phase 4)
+`workers/handwriting`: `hw/style.py` (reference → 5 word crops + ink colour), `hw/paper.py` (paper reconstruction /
+synthetic sheet), `hw/model.py` (DiffusionPen), `hw/recognize.py` (TrOCR word check), `hw/compose.py` (layout +
+composition + overlap/clip check), `hw/pipeline.py` (job → pages + manifest), `worker.py` (polling client).
+Studio: `GenerationPanel` queues `/api/jobs` (multipart: payload JSON + reference/paper JPEG ≤ 1.8 MB each), polls status,
+shows composite / paper-only / ink-only previews, line regeneration, OCR back-check, PDF/PNG download.

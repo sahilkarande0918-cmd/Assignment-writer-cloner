@@ -1,0 +1,20 @@
+# Top-level worker dependencies (exact versions: requirements.lock.txt).
+# PyTorch must come from the CUDA 12.8 index for RTX 50-series (sm_120):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
+diffusers>=0.30
+transformers>=4.44
+safetensors
+accelerate
+huggingface_hub
+timm
+einops
+opencv-python-headless
+pillow
+numpy
+requests
+pytest
+omegaconf
+sentencepiece
+protobuf

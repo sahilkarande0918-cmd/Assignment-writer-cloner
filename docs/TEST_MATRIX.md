@@ -18,6 +18,22 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — phase 4 (executed 2026-11-02, RTX 5050 Laptop 8 GB, torch 2.11.0+cu128, Chromium 156)
+| Suite | Command | Result |
+|---|---|---|
+| Unit (TS) | `npm test` | 53 passed, 10 skipped (live Groq) — adds job-queue state machine, worker auth, CER |
+| Worker, simulated generation | `pytest tests/test_pipeline.py` | 6 passed (font renderer stands in for the model) |
+| Worker, **live model** | `pytest -s tests/test_live.py` | 2 passed — real DiffusionPen on GPU |
+| E2E (no worker) + live Groq | `GROQ_LIVE=1 npm run test:e2e` | 25 passed, 15 skipped (mobile duplicates, opt-in live generation/screens) — includes "worker offline → queued + cancel" |
+| E2E **live generation** | `GENERATE_LIVE=1 npx playwright test generation` with worker polling | 2 passed: Text → Assignment (generate, layer previews, regenerate line, PDF reopened by PyMuPDF) and Convert (blocked until transcript confirmed, then generated) |
+
+Measured (live): model load 8.3 s / 0.81 GB VRAM; 0.35 s per word, peak 1.05 GB; 42-word page best-of-3 ≈ 22 s.
+Word check (TrOCR-small) on that page: 27/42 words exact, CER 21.6 % (was 40.8 % before prefix-tolerant scoring; single
+sample, unscored, misspells visibly more). Layout check: 0 overlaps, 0 clipped words, every input word placed once,
+reference text never present in output (simulated test asserts this; live output reviewed visually).
+Paper reconstruction (simulated ruled page): residual writing < 2 %, rule spacing detected ±2 px, untouched rule pixels identical.
+**Not measured**: similarity to a real writer — tests use a computer-font reference; needs the owner's authorised samples.
+
 ## Results — phase 3 (executed 2026-11-02, Windows 11, Chromium headless 156, Python 3.13 readers)
 | Suite | Command | Result |
 |---|---|---|

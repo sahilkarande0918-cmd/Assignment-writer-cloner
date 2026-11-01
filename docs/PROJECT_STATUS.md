@@ -5,8 +5,8 @@
 | 1 | Foundation, design system, dashboard shell | ✅ complete | `1b18c16` (verified via ls-remote) |
 | 2 | Secure imports, structural analysis, Groq planning | ✅ complete | `33b9218` (verified via ls-remote) |
 | 3 | Digital editing + deterministic export | ✅ complete | `cdb70dd` (verified via ls-remote) |
-| 4 | Handwriting worker, paper reconstruction, new assignments | ⏳ next | — |
-| 5 | Persistence, jobs, polish, deployment | ⏳ | — |
+| 4 | Handwriting worker, paper reconstruction, new assignments | ✅ complete | see HANDOFF |
+| 5 | Persistence, jobs, polish, deployment | ⏳ next | — |
 
 ## Owner-added requirement (2026-11-01)
 **Convert Handwriting** mode — keep assignment 1's content, write it in assignment 2's handwriting (ADR-009). Phase 1: mode + inputs. Phase 2: OCR transcript, Groq-vision transcript improvement (with consent), mandatory "I have checked this transcript". Phase 4: generation + OCR back-check.
@@ -30,11 +30,18 @@ Next.js 16 app, design tokens, landing (lazy WebGL hero + static fallback, befor
 - **Diff**: pixel diff for paged documents (changed-pixel %), line diff for DOCX/TXT.
 - **Exports**: PDF (native pass-through or typeset/imaged to A4/Letter), PNG/JPEG at 150/200/300 DPI (ZIP for multi-page), DOCX (native, or text-only best effort), TXT, MD. DOCX→PDF/PNG honestly unavailable (needs LibreOffice in the worker).
 
+## Phase 4 — done
+- **Research + licences** verified (RESEARCH.md): DiffusionPen integrated (MIT; IAM-trained), reforge unlicensed (not used), DiffInk not integrated, MiniMind excluded, TrOCR-small added for word checking (owner approved downloads: ~1.1 GB models + PyTorch cu128).
+- **Worker** `workers/handwriting` (Python 3.11, torch 2.11+cu128 on RTX 5050): style extraction (lettering only), paper reconstruction (writing removed, rules kept, baselines + margin detected; labelled synthetic fallback), DiffusionPen word generation with per-occurrence seeds, best-of-N TrOCR selection, letter-shape sizing, baseline/margin layout with automatic page breaks, transparent ink layer composited once, overlap/clipping check, provenance manifest, paper-only / ink-only / composite outputs, charset refusal + typography normalisation, OOM/GPU errors retried, input errors not.
+- **Job protocol**: outbound polling (claim, 120 s lease, heartbeat, checksummed artifacts, complete/fail, retry budget 3, idempotency, cancel, owner-only lease actions, worker online/offline). Store is in server memory for now (ADR-021).
+- **Studio**: Generation panel for Handwriting Clone (Text → Assignment on/off) and Convert (requires confirmed transcript); quality (1/3/6 candidates); worker status; queued/running/failed honesty; generated page viewer with layer switch; regenerate line; word-check report; Tesseract OCR back-check; PDF/PNG download; "Match the reference ink" pen option.
+- Setup: `workers/handwriting/setup.ps1`, `run-worker.ps1`, `README.md`, `requirements.lock.txt`.
+
 ## Pending / clearly disabled in UI
-Handwriting generation, paper reconstruction (phase 4); saving/library (phase 5).
+Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 
 ## Blockers
 - No Neon `DATABASE_URL` / storage credentials yet → phase 5 cloud persistence will fall back to IndexedDB until provided.
 
 ## Next action
-Phase 4: research/verify Reforge + DiffusionPen licences and weights (ask owner before multi-GB downloads), Python worker with outbound job polling, paper template reconstruction, Text → Assignment and Convert generation, OCR back-check, LibreOffice DOCX→PDF in worker.
+Phase 5: Neon Postgres + object storage (needs owner credentials) or IndexedDB fallback for ≥10 projects; move job store to Neon; single-owner auth; autosave/library; security/perf/a11y audit; Vercel deployment after verifying account.

@@ -67,7 +67,7 @@ export function Inspector({ mode, s, onChange }: { mode: Mode; s: LayoutSettings
                   <span
                     title={c.label}
                     className="block size-7 rounded-full border-2 border-paper ring-1 ring-line-strong peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-2 peer-focus-visible:outline-bronze"
-                    style={{ background: c.value }}
+                    style={{ background: c.value === "match" ? "conic-gradient(#1f2f5c, #1d3fae, #1b1a18, #a32424, #2f6b3a, #1f2f5c)" : c.value }}
                   />
                   <span className="sr-only">{c.label}</span>
                 </label>

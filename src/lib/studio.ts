@@ -81,6 +81,7 @@ export const PEN_COLORS = [
   { label: "Black", value: "#1b1a18" },
   { label: "Red", value: "#a32424" },
   { label: "Green", value: "#2f6b3a" },
+  { label: "Match the reference ink", value: "match" },
 ];
 
 export type ExportFormat = "pdf" | "png" | "jpeg" | "docx" | "txt" | "md";

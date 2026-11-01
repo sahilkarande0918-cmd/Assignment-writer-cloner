@@ -67,3 +67,8 @@ workers/**/outputs/
 .claude/settings.local.json
 /public/pdfjs/
 /public/mupdf/
+
+# handwriting worker
+/workers/handwriting/models/
+/workers/handwriting/*.log
+/workers/handwriting/out/

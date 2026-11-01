@@ -19,6 +19,7 @@ import { DocumentView } from "./document-view";
 import { TextPanel } from "./text-panel";
 import { ManualOperation, PlanPanel, type PlanState } from "./plan-panel";
 import { Transcript } from "./transcript";
+import { GenerationPanel, type GeneratedSet } from "./generation-panel";
 import { DiffView } from "./diff-view";
 import { applyPlan, verifyApplied, type OpReport } from "@/lib/edit/apply";
 import { exportDocument, exportUnavailable } from "@/lib/export";
@@ -52,6 +53,7 @@ export function Studio() {
   const [consent, setConsent] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [transcriptOk, setTranscriptOk] = useState(false);
+  const [generated, setGenerated] = useState<GeneratedSet>({ pages: [], ink: [] });
 
   const [history, setHistory] = useState<History>({ versions: [], cursor: 0 });
   const [applying, setApplying] = useState(false);
@@ -131,6 +133,8 @@ export function Studio() {
 
   const slots = slotsFor(mode, textToAssignment);
   const composing = mode === "clone" && textToAssignment;
+  // Rewriting an uploaded source in the reference handwriting: Convert, or Clone with Text → Assignment off.
+  const restyle = mode === "convert" || (mode === "clone" && !textToAssignment);
   const missing = missingInputs(mode, textToAssignment, uploads, composing ? content : instruction);
 
   // What the plan is checked against: document spans, the transcript (convert) or the typed content (compose).
@@ -359,15 +363,19 @@ export function Studio() {
                     />
                     <p className="mt-2 text-xs text-muted">{content.trim() ? `${content.trim().split(/\s+/).length} words` : "Type or paste the text to write."}</p>
                   </div>
-                  <figure className="mx-auto w-full max-w-[460px]" style={{ zoom }}>
-                    <PaperPreview s={layout} />
-                    <figcaption className="mt-2 text-center text-xs text-muted">Paper layer only — handwriting appears after generation on your GPU worker.</figcaption>
-                  </figure>
+                  {generated.pages.length ? (
+                    <GeneratedPages set={generated} zoom={zoom} />
+                  ) : (
+                    <figure className="mx-auto w-full max-w-[460px]" style={{ zoom }}>
+                      <PaperPreview s={layout} />
+                      <figcaption className="mt-2 text-center text-xs text-muted">Paper layer only — handwriting appears after generation on your GPU worker.</figcaption>
+                    </figure>
+                  )}
                 </div>
               ) : uploads.source ? (
                 <div className={cn("grid gap-6", split && "md:grid-cols-2")}>
                   <figure className="min-w-0">
-                    <figcaption className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-2">{mode === "convert" ? "Assignment 1 — content" : "Original"}</figcaption>
+                    <figcaption className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-2">{mode === "convert" ? "Assignment 1 — content" : restyle ? "Source" : "Original"}</figcaption>
                     <DocumentView
                       state={original}
                       file={uploads.source.file}
@@ -379,8 +387,8 @@ export function Studio() {
                     />
                   </figure>
                   {split &&
-                    (mode === "convert" ? (
-                      <ConvertPlaceholder hasStyle={!!uploads.reference} />
+                    (restyle ? (
+                      generated.pages.length ? <GeneratedPages set={generated} zoom={zoom} /> : <ConvertPlaceholder hasStyle={!!uploads.reference} />
                     ) : (
                       <figure className="min-w-0">
                         <figcaption className="mb-2 flex justify-between gap-2 text-xs uppercase tracking-[0.14em] text-ink-2">
@@ -440,8 +448,37 @@ export function Studio() {
             )}
           </section>
 
-          {mode === "convert" && ready && (
+          {restyle && ready && (
             <Transcript value={transcript} onChange={setTranscript} confirmed={transcriptOk} onConfirm={setTranscriptOk} previews={ready.loaded.previews} aiReady={!!ai?.configured && !ai.error} />
+          )}
+
+          {(mode === "clone" || mode === "convert") && (
+            <GenerationPanel
+              text={composing ? content : transcript}
+              textReady={
+                !uploads.reference
+                  ? "Add the handwriting reference first."
+                  : composing
+                    ? content.trim()
+                      ? null
+                      : "Type the assignment content first."
+                    : transcriptOk
+                      ? null
+                      : "Check and confirm the transcript first."
+              }
+              reference={uploads.reference}
+              paper={
+                uploads.paper
+                  ? { upload: uploads.paper, page: 0 }
+                  : layout.paper === "source" && uploads.source
+                    ? { upload: uploads.source, page: 0 }
+                    : layout.paper === "reference" && uploads.reference
+                      ? { upload: uploads.reference, page: 0 }
+                      : undefined
+              }
+              layout={layout}
+              onPages={setGenerated}
+            />
           )}
 
           {planError && (
@@ -615,6 +652,41 @@ const CONVERT_STEPS = [
   "Write the transcript in that style on the chosen paper, page by page.",
   "Check the result with OCR against the transcript and flag differences.",
 ];
+
+function GeneratedPages({ set, zoom }: { set: GeneratedSet; zoom: number }) {
+  const [i, setI] = useState(0);
+  const [layer, setLayer] = useState<"composite" | "paper" | "ink">("composite");
+  const at = Math.min(i, set.pages.length - 1);
+  const src = layer === "paper" && set.paper ? set.paper : layer === "ink" && set.ink[at] ? set.ink[at] : set.pages[at];
+  return (
+    <figure className="min-w-0">
+      <figcaption className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.14em] text-ink-2">
+        Generated · page {at + 1} of {set.pages.length}
+        <span className="flex items-center gap-1 normal-case tracking-normal">
+          <select aria-label="Preview layer" value={layer} onChange={(e) => setLayer(e.target.value as typeof layer)} className="rounded-full border border-line-strong bg-paper px-2 py-1 text-xs">
+            <option value="composite">Composite</option>
+            <option value="paper" disabled={!set.paper}>
+              Paper only
+            </option>
+            <option value="ink" disabled={!set.ink.length}>
+              Ink only
+            </option>
+          </select>
+          <Button variant="ghost" size="sm" aria-label="Previous generated page" disabled={at === 0} onClick={() => setI(at - 1)}>
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Button variant="ghost" size="sm" aria-label="Next generated page" disabled={at >= set.pages.length - 1} onClick={() => setI(at + 1)}>
+            <ChevronRight className="size-4" />
+          </Button>
+        </span>
+      </figcaption>
+      <div className="overflow-auto rounded-sm bg-paper shadow-[0_24px_60px_-40px_rgba(27,26,24,0.55)]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- generated page served by the job API */}
+        <img src={src} alt={`Generated handwriting, page ${at + 1}${layer === "composite" ? "" : `, ${layer} layer`}`} style={{ width: `${zoom * 100}%`, maxWidth: "none" }} className="block" />
+      </div>
+    </figure>
+  );
+}
 
 function ConvertPlaceholder({ hasStyle }: { hasStyle: boolean }) {
   return (
