@@ -1,20 +1,19 @@
 // Persistence on the Neon dev branch (playwright.config injects .env.test.local into the server).
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 const fx = (f: string) => path.join(__dirname, "..", "fixtures", f);
 
-test.describe("owner sign-in", () => {
-  test.skip(!existsSync(".owner-password"), "No owner password configured.");
+test.describe("accounts", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("owner pages redirect to sign-in; wrong password is refused; APIs need a session", async ({ page, request }) => {
+  test("studio pages redirect to sign-in; wrong password is refused; APIs need a session", async ({ page, request }) => {
     await page.goto("/library");
     await expect(page).toHaveURL(/\/login\?next=%2Flibrary/);
-    await page.getByLabel("Owner password").fill("definitely-not-it");
+    await page.getByLabel("Email").fill("nobody@example.test");
+    await page.getByLabel("Password").fill("definitely-not-it");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByText("Wrong password.")).toBeVisible();
+    await expect(page.getByText("Invalid email or password")).toBeVisible();
     expect((await request.get("/api/projects")).status()).toBe(401);
     expect((await request.get("/api/worker/status")).status()).toBe(401);
     expect((await request.get("/api/groq/status")).status()).toBe(401);

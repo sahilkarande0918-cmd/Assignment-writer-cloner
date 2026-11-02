@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { afterFailure, afterLostLease, workerAuth } from "@/lib/server/jobs";
-import { createSession, localOnly, validSession } from "@/lib/server/auth";
-import { hashPassword, verifyPassword } from "@/lib/server/password";
+import { isOwnerAccount } from "@/lib/account";
 import { cer, missedWords } from "@/lib/hwjob";
 
 describe("job state decisions", () => {
@@ -24,29 +23,11 @@ describe("job state decisions", () => {
   });
 });
 
-describe("owner auth", () => {
-  it("signs sessions, rejects tampering and expiry", async () => {
-    process.env.SESSION_SECRET = "x".repeat(40);
-    const s = await createSession(0);
-    expect(await validSession(s, 1000)).toBe(true);
-    expect(await validSession(s.replace(/.$/, (c) => (c === "A" ? "B" : "A")), 1000)).toBe(false);
-    expect(await validSession(`9999999999.${s.split(".")[1]}`, 1000)).toBe(false); // expiry is signed
-    expect(await validSession(s, 31 * 86400 * 1000)).toBe(false); // expired
-    expect(await validSession(undefined)).toBe(false);
-  });
-
-  it("hashes passwords with scrypt and verifies in constant time", async () => {
-    const h = await hashPassword("correct horse battery");
-    expect(h).toMatch(/^scrypt:\d+:8:1:/);
-    expect(h).not.toContain("$"); // safe in .env files
-    expect(await verifyPassword("correct horse battery", h)).toBe(true);
-    expect(await verifyPassword("wrong", h)).toBe(false);
-    await expect(hashPassword("short")).rejects.toThrow();
-  });
-
-  it("without a password only localhost is served", () => {
-    expect(localOnly(new Request("http://localhost:3000/"))).toBe(true);
-    expect(localOnly(new Request("https://app.vercel.app/", { headers: { host: "app.vercel.app" } }))).toBe(false);
+describe("owner account", () => {
+  it("needs the owner's address and a verified email", () => {
+    expect(isOwnerAccount(" SahilKarande0918@gmail.com ", true)).toBe(true);
+    expect(isOwnerAccount("sahilkarande0918@gmail.com", false)).toBe(false); // anyone could sign up with it unverified
+    expect(isOwnerAccount("student@college.edu", true)).toBe(false);
   });
 });
 

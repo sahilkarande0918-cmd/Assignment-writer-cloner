@@ -1,18 +1,15 @@
-// Signs in once as the owner (password from the git-ignored .owner-password) and saves the session for all tests.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+// Signs up a fresh test account on the Neon *dev* branch (email verification is off there) and saves its session
+// for all tests. Each run gets its own user, so the 3-generation free tier starts at zero.
+import { mkdirSync } from "node:fs";
 import { request, type FullConfig } from "@playwright/test";
 
 export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0].use.baseURL!;
   mkdirSync("test-results", { recursive: true });
-  const state = "test-results/owner-session.json";
-  if (!existsSync(".owner-password")) {
-    writeFileSync(state, JSON.stringify({ cookies: [], origins: [] }));
-    return; // no password configured: the app serves localhost without sign-in
-  }
   const ctx = await request.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL } });
-  const r = await ctx.post("/api/auth/login", { data: { password: readFileSync(".owner-password", "utf8").trim() } });
-  if (!r.ok()) throw new Error(`Owner sign-in failed: ${r.status()} ${await r.text()}`);
-  await ctx.storageState({ path: state });
+  const email = `e2e-${Date.now()}@example.test`;
+  const r = await ctx.post("/api/auth/sign-up/email", { data: { email, password: "e2e-password-123", name: "E2E" } });
+  if (!r.ok()) throw new Error(`Test sign-up failed: ${r.status()} ${await r.text()}`);
+  await ctx.storageState({ path: "test-results/owner-session.json" });
   await ctx.dispose();
 }

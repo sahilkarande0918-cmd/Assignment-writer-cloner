@@ -1,5 +1,5 @@
 // LIVE generation through the real job API and the local GPU worker. Opt-in: GENERATE_LIVE=1, with
-// `workers/handwriting/worker.py` polling this server (see scripts/e2e-generate.ps1).
+// `workers/handwriting/worker.py` polling this server (HW_API_URL=http://localhost:3100).
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
@@ -14,14 +14,21 @@ test.describe("handwriting generation (live worker)", () => {
     await page.goto("/studio");
     await page.getByRole("button", { name: "Handwriting Clone" }).click();
     await page.locator('input[type="file"]').first().setInputFiles(fx("ruled-page.png"));
-    await page.getByLabel("Assignment content").fill("Experiment No. 6\nAim: To study a simple pendulum.\n\nResult: The period depends on the length.");
+    await page
+      .getByLabel("Assignment content")
+      .fill(
+        "Experiment No. 6\nAim: To study a simple pendulum and measure its period at 25°C.\n\nObservation: the error was under 2% for every length, so g = 9.8 m/s² (see table [1] @ lab).\n\nResult: The period depends on the length, not on the mass of the bob.",
+      );
     await expect(page.getByText("GPU worker online")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Generate pages" }).click();
     const panel = page.getByRole("region", { name: "Generate handwriting" });
+    // Live progress from the worker heartbeat: a real percentage and stage, not an animation.
+    await expect(panel.getByRole("progressbar")).toHaveAttribute("aria-valuetext", /^\d+% — Writing words/, { timeout: 120_000 });
     await expect(panel.getByText("Generated", { exact: true })).toBeVisible({ timeout: 240_000 });
     await expect(panel.getByText("Generated handwriting")).toBeVisible();
     await expect(panel.getByText("No overlaps or clipping")).toBeVisible();
     await expect(panel.getByText(/Word check \(trocr-small-handwritten, best of 3\)/)).toBeVisible();
+    await expect(panel.getByText(/Drawn from a handwriting font.*%.*°/)).toBeVisible(); // symbols written, not refused
     await expect(page.getByRole("img", { name: "Generated handwriting, page 1" })).toBeVisible();
     await page.screenshot({ path: "test-results/screens/generation-desktop.png", fullPage: true });
     await page.getByLabel("Preview layer").selectOption("paper");
@@ -61,16 +68,20 @@ test.describe("handwriting generation (live worker)", () => {
   });
 });
 
-test("worker offline: the job is queued and the studio says why (no fake progress)", async ({ page, isMobile }) => {
+test("no GPU worker: the job is queued and the studio says why (no fake progress)", async ({ page, isMobile }) => {
   test.skip(isMobile || !!process.env.GENERATE_LIVE, "Runs only when no worker is polling.");
   await page.goto("/studio");
   await page.getByRole("button", { name: "Handwriting Clone" }).click();
   await page.locator('input[type="file"]').first().setInputFiles(fx("ruled-page.png"));
   await page.getByLabel("Assignment content").fill("Short test.");
   const panel = page.getByRole("region", { name: "Generate handwriting" });
-  await expect(panel.getByText(/GPU worker offline|Worker: disabled/)).toBeVisible({ timeout: 20_000 });
+  await expect(panel.getByText(/GPU worker offline|GPU: disabled/)).toBeVisible({ timeout: 20_000 });
   await panel.getByRole("button", { name: "Generate pages" }).click();
-  await expect(panel.getByText("Queued — waiting for your GPU worker")).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByText("Waiting for a GPU worker", { exact: true })).toBeVisible({ timeout: 30_000 });
+  const bar = panel.getByRole("progressbar", { name: "Generation progress" });
+  await expect(bar).toHaveAttribute("aria-valuetext", /Waiting for a GPU worker/); // indeterminate: no invented percentage
+  await expect(bar).not.toHaveAttribute("aria-valuenow", /.+/);
+  await expect(panel.getByText(/of 3 free generations left/)).toBeVisible();
   await panel.getByRole("button", { name: "Cancel" }).click();
   await expect(panel.getByText("Cancelled")).toBeVisible();
 });

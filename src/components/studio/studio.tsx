@@ -471,7 +471,7 @@ export function Studio() {
                   ) : (
                     <figure className="mx-auto w-full max-w-[460px]" style={{ zoom }}>
                       <PaperPreview s={layout} />
-                      <figcaption className="mt-2 text-center text-xs text-muted">Paper layer only — handwriting appears after generation on your GPU worker.</figcaption>
+                      <figcaption className="mt-2 text-center text-xs text-muted">Paper layer only — handwriting appears after you press Generate.</figcaption>
                     </figure>
                   )}
                 </div>

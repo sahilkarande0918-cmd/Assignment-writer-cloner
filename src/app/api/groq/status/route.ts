@@ -1,12 +1,12 @@
 import { connection } from "next/server";
 import { groq, groqModels } from "@/lib/server/groq";
-import { requireOwner } from "@/lib/server/auth";
+import { requireUser } from "@/lib/server/auth";
 
 // Reports whether Groq is configured and which configured models the account can actually use.
-export async function GET(req: Request) {
+export async function GET() {
   await connection();
-  const denied = await requireOwner(req);
-  if (denied) return denied;
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   const models = groqModels();
   if (!process.env.GROQ_API_KEY) return Response.json({ configured: false, models });
   try {

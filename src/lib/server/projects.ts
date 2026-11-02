@@ -1,5 +1,7 @@
 // Project persistence: rows in Neon, bytes in private object storage, signed URLs for every read/write.
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+// Every call is scoped to the signed-in user; another user's project id behaves as "not found".
+import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import type { User } from "../account";
 import { MAX_FILE_BYTES, sanitizeFilename, sniffKind } from "../formats";
 import { db, schema as s } from "./db";
 import { copyObject, deletePrefix, headBytes, objectSize, projectPrefix, signedGet, signedPut } from "./storage";
@@ -14,8 +16,17 @@ export class Conflict extends Error {}
 export class NotFound extends Error {}
 export class Invalid extends Error {}
 
-export async function listProjects(q?: string, mode?: string) {
-  const where = and(q ? ilike(s.projects.name, `%${q.replace(/[%_\\]/g, "\\$&")}%`) : undefined, mode && (MODES as readonly string[]).includes(mode) ? eq(s.projects.mode, mode) : undefined);
+/** Rows this user may touch. The owner also holds rows saved before accounts existed (user_id NULL). */
+export const mine = (user: User) => (user.owner ? or(eq(s.projects.userId, user.id), isNull(s.projects.userId)) : eq(s.projects.userId, user.id));
+
+/** Throws NotFound unless the project belongs to the user. */
+export async function ownProject(id: string, user: User) {
+  const [p] = await db().select({ id: s.projects.id }).from(s.projects).where(and(eq(s.projects.id, id), mine(user)));
+  if (!p) throw new NotFound("Project not found.");
+}
+
+export async function listProjects(user: User, q?: string, mode?: string) {
+  const where = and(mine(user), q ? ilike(s.projects.name, `%${q.replace(/[%_\\]/g, "\\$&")}%`) : undefined, mode && (MODES as readonly string[]).includes(mode) ? eq(s.projects.mode, mode) : undefined);
   const rows = await db()
     .select({
       id: s.projects.id,
@@ -33,14 +44,14 @@ export async function listProjects(q?: string, mode?: string) {
     .from(s.projects)
     .where(where)
     .orderBy(desc(s.projects.updatedAt));
-  const [{ total }] = await db().select({ total: sql<number>`count(*)::int`.mapWith(Number) }).from(s.projects);
+  const [{ total }] = await db().select({ total: sql<number>`count(*)::int`.mapWith(Number) }).from(s.projects).where(mine(user));
   return { projects: rows, total, limit: MAX_PROJECTS };
 }
 
-export async function createProject(name: string, mode: string) {
-  const [{ total }] = await db().select({ total: sql<number>`count(*)::int`.mapWith(Number) }).from(s.projects);
+export async function createProject(user: User, name: string, mode: string) {
+  const [{ total }] = await db().select({ total: sql<number>`count(*)::int`.mapWith(Number) }).from(s.projects).where(mine(user));
   if (total >= MAX_PROJECTS) throw new Invalid(`The library holds up to ${MAX_PROJECTS} projects. Delete one to make room.`);
-  const [p] = await db().insert(s.projects).values({ name, mode }).returning();
+  const [p] = await db().insert(s.projects).values({ name, mode, userId: user.id }).returning();
   return p;
 }
 
@@ -56,7 +67,8 @@ const fileView = async (f: typeof s.sourceFiles.$inferSelect) => ({
   downloadUrl: f.status === "ready" ? await signedGet(f.storageKey, f.name) : null,
 });
 
-export async function getProject(id: string) {
+export async function getProject(user: User, id: string) {
+  await ownProject(id, user);
   const [p] = await db().select().from(s.projects).where(eq(s.projects.id, id));
   if (!p) throw new NotFound("Project not found.");
   const files = await db().select().from(s.sourceFiles).where(and(eq(s.sourceFiles.projectId, id), eq(s.sourceFiles.status, "ready"))).orderBy(asc(s.sourceFiles.createdAt));
@@ -82,7 +94,8 @@ export async function getProject(id: string) {
 }
 
 /** Optimistic locking: the client sends the updatedAt it last saw; a newer row wins and the client must reload. */
-export async function updateProject(id: string, expectedUpdatedAt: string, patch: { name?: string; mode?: string; settings?: unknown; cursor?: number; status?: string }) {
+export async function updateProject(user: User, id: string, expectedUpdatedAt: string, patch: { name?: string; mode?: string; settings?: unknown; cursor?: number; status?: string }) {
+  await ownProject(id, user);
   const rows = await db()
     .update(s.projects)
     .set({ ...patch, updatedAt: sql`now()` })
@@ -95,7 +108,8 @@ export async function updateProject(id: string, expectedUpdatedAt: string, patch
   return rows[0];
 }
 
-export async function deleteProject(id: string) {
+export async function deleteProject(user: User, id: string) {
+  await ownProject(id, user);
   const jobIds = (await db().select({ id: s.renderJobs.id }).from(s.renderJobs).where(eq(s.renderJobs.projectId, id))).map((j) => j.id);
   const rows = await db().delete(s.projects).where(eq(s.projects.id, id)).returning({ id: s.projects.id });
   if (!rows.length) throw new NotFound("Project not found.");
@@ -103,9 +117,9 @@ export async function deleteProject(id: string) {
   for (const j of jobIds) await deletePrefix(`jobs/${j}/`);
 }
 
-export async function duplicateProject(id: string) {
-  const { project } = await getProject(id);
-  const copy = await createProject(`${project.name} (copy)`, project.mode);
+export async function duplicateProject(user: User, id: string) {
+  const { project } = await getProject(user, id);
+  const copy = await createProject(user, `${project.name} (copy)`, project.mode);
   await db().update(s.projects).set({ settings: project.settings, cursor: project.cursor, status: project.status }).where(eq(s.projects.id, copy.id));
   const files = await db().select().from(s.sourceFiles).where(and(eq(s.sourceFiles.projectId, id), eq(s.sourceFiles.status, "ready")));
   const idMap = new Map<string, string>();
@@ -125,7 +139,8 @@ export async function duplicateProject(id: string) {
 }
 
 /** Step 1 of an upload: validate metadata, create a pending row, hand back a signed PUT URL. */
-export async function createUpload(projectId: string, slot: Slot, name: string, size: number, mime: string) {
+export async function createUpload(user: User, projectId: string, slot: Slot, name: string, size: number, mime: string) {
+  await ownProject(projectId, user);
   if (!SLOTS.includes(slot)) throw new Invalid("Unknown file slot.");
   if (size <= 0 || size > MAX_FILE_BYTES) throw new Invalid(`Files are limited to ${MAX_FILE_BYTES / 1024 / 1024} MB.`);
   if (!/^[\w.+-]+\/[\w.+-]+$/.test(mime)) throw new Invalid("Unsupported content type.");
@@ -140,7 +155,8 @@ export async function createUpload(projectId: string, slot: Slot, name: string, 
 }
 
 /** Step 2: verify the object really arrived with the declared size and a supported signature. */
-export async function confirmUpload(projectId: string, fileId: string) {
+export async function confirmUpload(user: User, projectId: string, fileId: string) {
+  await ownProject(projectId, user);
   const [f] = await db().select().from(s.sourceFiles).where(and(eq(s.sourceFiles.id, fileId), eq(s.sourceFiles.projectId, projectId)));
   if (!f) throw new NotFound("Upload not found.");
   const size = await objectSize(f.storageKey);
@@ -157,7 +173,8 @@ export async function confirmUpload(projectId: string, fileId: string) {
 }
 
 /** Record an applied edit as an immutable version (its file was uploaded with slot "version"). Truncates any redo branch. */
-export async function addVersion(projectId: string, fileId: string, index: number, label: string, method: string, ops: { op: unknown; report: unknown }[]) {
+export async function addVersion(user: User, projectId: string, fileId: string, index: number, label: string, method: string, ops: { op: unknown; report: unknown }[]) {
+  await ownProject(projectId, user);
   const [f] = await db().select().from(s.sourceFiles).where(and(eq(s.sourceFiles.id, fileId), eq(s.sourceFiles.projectId, projectId), eq(s.sourceFiles.status, "ready")));
   if (!f || f.slot !== "version") throw new Invalid("Upload the version file first.");
   const stale = await db().select({ id: s.documentVersions.id, fileId: s.documentVersions.fileId }).from(s.documentVersions).where(and(eq(s.documentVersions.projectId, projectId), sql`${s.documentVersions.index} >= ${index}`));

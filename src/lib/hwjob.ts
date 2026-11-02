@@ -26,6 +26,7 @@ export type HwManifest = {
   paper: { source: "reference" | "synthetic"; notes: string[] };
   pen: string;
   normalised: string[];
+  font_drawn?: string[]; // characters outside the model charset, drawn from a handwriting font
   issues: string[];
   word_check: { model: string; candidates: number; cer: number; exact_words: number; words: number; doubtful: { word: string; read: string }[] } | null;
   pages: { size: [number, number]; lines: { occ: number[]; text: string }[]; words: { occ: number; word: string; box: [number, number, number, number] }[] }[];

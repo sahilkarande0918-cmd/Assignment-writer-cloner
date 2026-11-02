@@ -41,7 +41,7 @@ const LIMITS = [
   ["Similarity, not identity", "Generated handwriting approximates a style. It is previewed with confidence notes and can be corrected line by line — it is never claimed to be identical."],
   ["Digital vs scanned", "Native PDF and DOCX text can often be edited in place. Scans and photos are reconstructed region by region and are never lossless."],
   ["Your own references", "Use handwriting you are authorised to use. Signatures and identity documents are out of scope, and generated pages carry a provenance flag."],
-  ["Honest status", "Heavy handwriting generation runs on your own GPU worker. When it is offline, jobs wait in the queue and the studio says so."],
+  ["Honest status", "Handwriting is generated on a cloud GPU that starts when you press Generate, with a live progress bar. Free accounts get 3 generations."],
 ];
 
 const STEPS = [

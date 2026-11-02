@@ -9,8 +9,10 @@ import { imagesToPdf } from "@/lib/export";
 import type { LayoutSettings } from "@/lib/studio";
 import type { Upload } from "./upload-card";
 
-type JobView = { id: string; status: "queued" | "running" | "succeeded" | "failed" | "cancelled"; attempts: number; error: string | null; manifest: HwManifest | null; artifacts: string[]; history: { at: number; status: string; note?: string }[] };
-type Worker = { online: boolean; lastSeen: number | null; enabled?: boolean };
+type Progress = { stage: string; done?: number; total?: number; percent: number; eta?: number | null };
+type JobView = { id: string; status: "queued" | "running" | "succeeded" | "failed" | "cancelled"; attempts: number; error: string | null; progress: Progress | null; manifest: HwManifest | null; artifacts: string[]; history: { at: number; status: string; note?: string }[] };
+type Worker = { online: boolean; lastSeen: number | null; enabled?: boolean; cloud?: boolean };
+type Quota = { used: number; limit: number | null; left: number | null };
 type Check = { cer: number; missed: string[] };
 export type GeneratedSet = { pages: string[]; ink: string[]; paper?: string };
 
@@ -21,14 +23,48 @@ export function artifactSet(id: string, names: string[]): GeneratedSet {
 }
 
 const STATUS_TEXT: Record<JobView["status"], string> = {
-  queued: "Queued — waiting for your GPU worker",
-  running: "Generating on your GPU worker",
+  queued: "Waiting for a GPU worker",
+  running: "Generating",
   succeeded: "Generated",
   failed: "Failed",
   cancelled: "Cancelled",
 };
 
-/** Generation for Handwriting Clone and Convert. Jobs run on the owner's local GPU worker via outbound polling. */
+const duration = (s: number) => (s < 60 ? "under a minute" : s < 3600 ? `about ${Math.round(s / 60)} min` : `about ${(s / 3600).toFixed(1)} h`);
+
+/** Progress bar fed by the worker heartbeat; indeterminate while the GPU starts. */
+function JobProgress({ job, cloud }: { job: JobView; cloud?: boolean }) {
+  const p = job.status === "running" ? job.progress : null;
+  const label = job.status === "queued" ? (cloud ? "Starting the cloud GPU — usually about a minute" : "Waiting for a GPU worker to pick this up") : p ? p.stage : "Loading the handwriting model";
+  const pct = p ? Math.min(100, Math.max(0, p.percent)) : null;
+  return (
+    <div className="space-y-1.5">
+      <div
+        role="progressbar"
+        aria-label="Generation progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct ?? undefined}
+        aria-valuetext={pct === null ? label : `${Math.round(pct)}% — ${label}`}
+        className="h-2.5 overflow-hidden rounded-full bg-line"
+      >
+        <div className={`h-full rounded-full bg-ink transition-[width] duration-700 ${pct === null ? "w-1/3 animate-pulse" : ""}`} style={pct === null ? undefined : { width: `${Math.max(2, pct)}%` }} />
+      </div>
+      <p className="flex flex-wrap justify-between gap-x-4 text-xs text-ink-2">
+        <span>
+          {label}
+          {p?.total && p.stage === "Writing words" ? ` — ${p.done ?? 0} of ${p.total} word samples` : ""}
+        </span>
+        <span>
+          {pct !== null && `${Math.round(pct)}%`}
+          {p?.eta ? ` · ${duration(p.eta)} left` : ""}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/** Generation for Handwriting Clone and Convert. Jobs run on a cloud GPU started per job (or a local worker) via outbound polling. */
 export function GenerationPanel({
   text,
   textReady,
@@ -47,6 +83,7 @@ export function GenerationPanel({
   onPages: (v: GeneratedSet) => void;
 }) {
   const [worker, setWorker] = useState<Worker>();
+  const [quota, setQuota] = useState<Quota>();
   const [job, setJob] = useState<JobView>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
@@ -60,6 +97,10 @@ export function GenerationPanel({
   useEffect(() => {
     const poll = () => fetch("/api/worker/status").then((r) => r.json()).then(setWorker).catch(() => {});
     poll();
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((j) => setQuota(j.quota))
+      .catch(() => {});
     const t = window.setInterval(poll, 10_000);
     return () => window.clearInterval(t);
   }, []);
@@ -108,6 +149,7 @@ export function GenerationPanel({
       if (paper) form.set("paper", await pageImage(paper.upload.file, paper.upload.kind, paper.page), "paper.jpg");
       const r = await fetch("/api/jobs", { method: "POST", body: form, headers: { "idempotency-key": crypto.randomUUID() } });
       const j = await r.json();
+      if (j.quota) setQuota(j.quota);
       if (!r.ok) throw new Error(j.error ?? "Could not queue the job.");
       setJob(j.job);
       setWorker(j.worker);
@@ -149,6 +191,7 @@ export function GenerationPanel({
   }
 
   const busy = submitting || job?.status === "queued" || job?.status === "running";
+  const paused = quota?.left === 0;
   const m = job?.manifest;
   return (
     <section aria-labelledby="gen-h" className="rounded-2xl border border-line bg-paper p-4">
@@ -156,13 +199,13 @@ export function GenerationPanel({
         <h2 id="gen-h" className="font-display text-2xl">
           Generate handwriting
         </h2>
-        <Badge tone={worker?.online ? "ok" : "pending"} title={worker?.enabled === false ? "WORKER_TOKEN is not set on the server" : undefined}>
-          {worker === undefined ? "Worker: checking" : worker.enabled === false ? "Worker: disabled" : worker.online ? "GPU worker online" : "GPU worker offline"}
+        <Badge tone={worker?.cloud || worker?.online ? "ok" : "pending"} title={worker?.enabled === false ? "WORKER_TOKEN is not set on the server" : undefined}>
+          {worker === undefined ? "GPU: checking" : worker.enabled === false ? "GPU: disabled" : worker.cloud ? "Cloud GPU ready" : worker.online ? "GPU worker online" : "GPU worker offline"}
         </Badge>
       </div>
       <p className="mt-1 text-xs text-muted">
-        Runs DiffusionPen on your own computer. Results approximate the reference writer&apos;s style; they are marked as generated and are never identical to real handwriting.
-        {!worker?.online && " Jobs wait in the queue until the worker is running (see workers/handwriting/README.md)."}
+        Runs the DiffusionPen handwriting model on {worker?.cloud ? "a cloud GPU that starts when you press Generate" : "a GPU worker"}. Results approximate the reference writer&apos;s style; they are marked as generated and are never identical to real handwriting.
+        {worker && !worker.cloud && !worker.online && " Jobs wait in the queue until a worker is running."}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -174,7 +217,7 @@ export function GenerationPanel({
             <option value={6}>Best — best of 6 (slowest)</option>
           </select>
         </label>
-        <Button size="sm" disabled={!!textReady || !reference || busy} title={textReady ?? undefined} onClick={() => submit()}>
+        <Button size="sm" disabled={!!textReady || !reference || busy || paused} title={textReady ?? undefined} onClick={() => submit()}>
           {submitting ? "Preparing…" : busy ? "Working…" : job ? "Generate again" : "Generate pages"}
         </Button>
         {busy && job && (
@@ -183,6 +226,11 @@ export function GenerationPanel({
           </Button>
         )}
         {textReady && <span className="text-xs text-muted">{textReady}</span>}
+        {quota?.limit != null && (
+          <span className={`text-xs ${paused ? "text-danger" : "text-muted"}`}>
+            {paused ? `All ${quota.limit} free generations used — generation is paused.` : `${quota.left} of ${quota.limit} free generations left`}
+          </span>
+        )}
       </div>
 
       {error && (
@@ -198,6 +246,7 @@ export function GenerationPanel({
             <strong className="font-medium">{STATUS_TEXT[job.status]}</strong>
             {job.attempts > 1 && <span className="text-xs text-muted">attempt {job.attempts}</span>}
           </p>
+          {busy && <JobProgress job={job} cloud={worker?.cloud} />}
           {job.error && <p className="text-sm text-danger">{job.error}</p>}
           {m && (
             <>
@@ -214,6 +263,11 @@ export function GenerationPanel({
                   Word check ({m.word_check.model}, best of {m.word_check.candidates}): {m.word_check.exact_words}/{m.word_check.words} words read back exactly, character error rate{" "}
                   {(m.word_check.cer * 100).toFixed(1)}%.
                   {m.word_check.doubtful.length > 0 && ` Doubtful: ${m.word_check.doubtful.map((d) => `${d.word} (read “${d.read}”)`).slice(0, 8).join(", ")} — regenerate those lines below.`}
+                </p>
+              )}
+              {!!m.font_drawn?.length && (
+                <p className="text-xs text-ink-2">
+                  Drawn from a handwriting font (the model cannot write them): {m.font_drawn.join(" ")}
                 </p>
               )}
               {[...m.paper.notes, ...m.normalised, ...m.issues].map((n) => (

@@ -1,4 +1,5 @@
+import { cloudGpu } from "@/lib/server/gpu";
 import { workerOnline } from "@/lib/server/jobs";
-import { ownerRoute } from "@/lib/server/http";
+import { userRoute } from "@/lib/server/http";
 
-export const GET = ownerRoute(async () => Response.json({ ...(await workerOnline()), enabled: !!process.env.WORKER_TOKEN }));
+export const GET = userRoute(async () => Response.json({ ...(await workerOnline()), enabled: !!process.env.WORKER_TOKEN, cloud: cloudGpu() }));

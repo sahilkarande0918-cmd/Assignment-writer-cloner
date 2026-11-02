@@ -1,6 +1,7 @@
 // Render-job queue for the outbound-polling GPU worker, on Neon Postgres + private object storage.
 // Rows hold state; inputs/artifacts live under jobs/<id>/ in the bucket. Every transition appends to history.
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { User } from "../account";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema as s } from "./db";
 import { getObject, putObject, signedGet } from "./storage";
@@ -18,7 +19,7 @@ export const afterFailure = (retryable: boolean, attempts: number, max: number):
 
 const entry = (status: string, note?: string) => sql`jsonb_build_array(jsonb_build_object('at', (extract(epoch from now()) * 1000)::bigint, 'status', ${status}::text, 'note', ${note ?? null}::text))`;
 
-export async function createJob(payload: Record<string, unknown>, inputs: Record<string, { data: Uint8Array; type: string }>, idempotencyKey?: string, projectId?: string) {
+export async function createJob(payload: Record<string, unknown>, inputs: Record<string, { data: Uint8Array; type: string }>, idempotencyKey?: string, projectId?: string, userId?: string) {
   if (idempotencyKey) {
     const [dup] = await db().select().from(s.renderJobs).where(eq(s.renderJobs.idempotencyKey, idempotencyKey));
     if (dup) return dup;
@@ -32,7 +33,7 @@ export async function createJob(payload: Record<string, unknown>, inputs: Record
   }
   const [job] = await db()
     .insert(s.renderJobs)
-    .values({ id, projectId: projectId ?? null, payload, inputs: stored, idempotencyKey: idempotencyKey ?? null, history: sql`${entry("queued")}` })
+    .values({ id, projectId: projectId ?? null, userId: userId ?? null, payload, inputs: stored, idempotencyKey: idempotencyKey ?? null, history: sql`${entry("queued")}` })
     .returning();
   return job;
 }
@@ -58,7 +59,7 @@ export async function claimJob(workerId: string) {
   await seen(workerId);
   await reap();
   const rows = await db().execute<typeof s.renderJobs.$inferSelect & { max_attempts: number; lease_until: string }>(sql`
-    update render_jobs set status = 'running', attempts = attempts + 1, worker_id = ${workerId},
+    update render_jobs set status = 'running', attempts = attempts + 1, worker_id = ${workerId}, progress = null,
       lease_until = now() + make_interval(secs => ${LEASE_SECONDS}), updated_at = now(),
       history = history || jsonb_build_array(jsonb_build_object('at', (extract(epoch from now()) * 1000)::bigint, 'status', 'running', 'note', 'Attempt ' || (attempts + 1) || ' on ' || ${workerId}::text))
     where id = (select id from render_jobs where status = 'queued' order by created_at for update skip locked limit 1)
@@ -74,11 +75,16 @@ async function owned(id: string, workerId: string) {
   return j ?? null;
 }
 
-export async function heartbeat(id: string, workerId: string) {
+export type Progress = { stage: string; done?: number; total?: number; percent: number; eta?: number | null };
+
+export async function heartbeat(id: string, workerId: string, progress?: Progress) {
   const [j] = await db().select({ status: s.renderJobs.status }).from(s.renderJobs).where(eq(s.renderJobs.id, id));
   if (j?.status === "cancelled") return { cancelled: true };
   if (!(await owned(id, workerId))) return null;
-  await db().update(s.renderJobs).set({ leaseUntil: sql`now() + make_interval(secs => ${LEASE_SECONDS})`, updatedAt: sql`now()` }).where(eq(s.renderJobs.id, id));
+  await db()
+    .update(s.renderJobs)
+    .set({ leaseUntil: sql`now() + make_interval(secs => ${LEASE_SECONDS})`, updatedAt: sql`now()`, ...(progress ? { progress } : {}) })
+    .where(eq(s.renderJobs.id, id));
   return { cancelled: false };
 }
 
@@ -152,6 +158,9 @@ export async function getJob(id: string) {
   return j ?? null;
 }
 
+/** A job is visible to the user who queued it; the owner also sees jobs from before accounts existed. */
+export const ownsJob = (j: typeof s.renderJobs.$inferSelect, user: User) => j.userId === user.id || (user.owner && j.userId === null);
+
 export async function publicJob(j: typeof s.renderJobs.$inferSelect) {
   const artifacts = await db().select({ name: s.outputArtifacts.name }).from(s.outputArtifacts).where(eq(s.outputArtifacts.jobId, j.id));
   return {
@@ -159,6 +168,7 @@ export async function publicJob(j: typeof s.renderJobs.$inferSelect) {
     status: j.status as JobStatus,
     attempts: j.attempts,
     error: j.error,
+    progress: j.status === "running" ? (j.progress as Progress | null) : null,
     manifest: TERMINAL.includes(j.status as JobStatus) ? j.manifest : null,
     artifacts: j.status === "succeeded" ? artifacts.map((a) => a.name).sort() : [],
     history: j.history,
