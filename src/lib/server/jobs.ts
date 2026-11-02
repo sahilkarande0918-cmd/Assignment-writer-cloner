@@ -1,6 +1,6 @@
 // Render-job queue for the outbound-polling GPU worker, on Neon Postgres + private object storage.
 // Rows hold state; inputs/artifacts live under jobs/<id>/ in the bucket. Every transition appends to history.
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { User } from "../account";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema as s } from "./db";
@@ -181,12 +181,28 @@ export async function artifactUrl(jobId: string, name: string) {
   return a ? signedGet(a.storageKey) : null;
 }
 
-/** Constant-time bearer check for worker endpoints. */
+const same = (x: string, y: string) => {
+  const a = Buffer.from(x), b = Buffer.from(y);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+const sign = (exp: number) => createHmac("sha256", process.env.WORKER_TOKEN!).update(`eph.${exp}`).digest("hex");
+
+/** Short-lived worker token for a cloud run whose source is stored by the provider (Kaggle): "eph.<exp>.<hmac>". */
+export function ephemeralToken(ttlSeconds: number, now = Date.now()) {
+  const exp = Math.floor(now / 1000) + ttlSeconds;
+  return `eph.${exp}.${sign(exp)}`;
+}
+
+function validEphemeral(token: string, now = Date.now()) {
+  const [p, exp, sig] = token.split(".");
+  return p === "eph" && /^\d{1,12}$/.test(exp ?? "") && Number(exp) * 1000 > now && same(sig ?? "", sign(Number(exp)));
+}
+
+/** Constant-time bearer check for worker endpoints: WORKER_TOKEN, or an unexpired ephemeral token. */
 export function workerAuth(req: Request): { workerId: string } | Response {
   const token = process.env.WORKER_TOKEN;
   if (!token) return Response.json({ error: "Worker access is disabled: WORKER_TOKEN is not set on the server." }, { status: 503 });
   const got = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-  const a = Buffer.from(got), b = Buffer.from(token);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return Response.json({ error: "Invalid worker token." }, { status: 401 });
+  if (!same(got, token) && !validEphemeral(got)) return Response.json({ error: "Invalid worker token." }, { status: 401 });
   return { workerId: (req.headers.get("x-worker-id") ?? "worker").replace(/[^\w.-]/g, "").slice(0, 80) || "worker" };
 }

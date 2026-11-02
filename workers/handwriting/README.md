@@ -10,7 +10,14 @@ ports, no database credentials — just `WORKER_TOKEN`. It reports progress (sta
 > `provenance.generated = true` record. Use only handwriting you are authorised to use; signatures and identity
 > documents are out of scope.
 
-## Cloud GPU (Modal) — one-time setup by the site owner
+## Cloud GPU (Kaggle, free) — one-time setup by the site owner
+1. kaggle.com account, verify the phone number (unlocks GPU + internet), Settings → API → create a token.
+2. Set `KAGGLE_USERNAME` and `KAGGLE_API_TOKEN` (or legacy `KAGGLE_KEY`) on the server (Vercel env).
+Pressing Generate then starts a private Kaggle script run (`assignment-studio-gpu`) that clones this repo, downloads the
+weights from Hugging Face, and runs `worker.py --drain --idle 300` on a T4. It holds only a short-lived worker token.
+Start-up takes a few minutes; about 30 GPU hours a week are free.
+
+## Cloud GPU (Modal, paid alternative) — needs a payment method on modal.com
 ```powershell
 cd workers\handwriting
 .\.venv\Scripts\modal token new                                    # sign in to modal.com in the browser

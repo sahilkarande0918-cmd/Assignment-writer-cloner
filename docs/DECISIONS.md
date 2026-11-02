@@ -144,3 +144,16 @@ handwriting font) or DejaVu Sans (Greek/maths) at the computed x-height, inked i
 one word image. They are not in the writer's style, so the manifest lists them (`font_drawn`) and the studio says so.
 Only characters no bundled font has (e.g. CJK) are refused. Progress: the worker heartbeat (every 4 s) carries
 `{stage, done, total, percent, eta}`, stored in `render_jobs.progress` and drawn as a progress bar.
+
+## ADR-030 Free cloud GPU on Kaggle (2026-11-02, owner request: no card, no quality loss)
+Modal refused every GPU without a payment method. Researched no-card options that run the same model at full settings:
+Colab (terms forbid web-service backends and workers), Hugging Face ZeroGPU (PRO plan to host), HF compute Spaces
+(reportedly paid now), Lightning AI (no documented programmatic start), in-browser WebGPU (same weights but far too slow
+on phones), glyph/font renderers (fast but weaker on joined handwriting). Chosen: **Kaggle** — free T4 GPU (~30 h/week,
+phone verification, no card) started through its public API (`kernels.KernelsApiService/SaveKernel`) as a private
+script that clones this public repo, downloads the weights from Hugging Face and runs `worker.py --drain --idle 300`.
+Same DiffusionPen weights, 50 steps, best-of-N word check: quality unchanged. The script holds only a 10-hour
+HMAC-signed worker token (`ephemeralToken`), never `WORKER_TOKEN`. No new run is started while one is queued/running or
+while a worker (e.g. the owner's PC) is polling. Jobs no GPU claims within 60 minutes fail with a clear message.
+Risks: Kaggle's terms do not explicitly cover use as a website backend; start-up takes ~3–5 minutes; one run at a time
+works jobs sequentially (ponytail: second account or Modal when concurrency matters).

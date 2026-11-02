@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { afterFailure, afterLostLease, workerAuth } from "@/lib/server/jobs";
+import { execFileSync } from "node:child_process";
+import { afterFailure, afterLostLease, ephemeralToken, workerAuth } from "@/lib/server/jobs";
 import { isOwnerAccount } from "@/lib/account";
 import { cer, missedWords } from "@/lib/hwjob";
 
@@ -21,6 +22,17 @@ describe("job state decisions", () => {
     delete process.env.WORKER_TOKEN;
     expect((workerAuth(req("Bearer s3cret-token")) as Response).status).toBe(503);
   });
+
+  it("accepts short-lived cloud tokens until they expire, and nothing forged", () => {
+    process.env.WORKER_TOKEN = "s3cret-token";
+    const req = (t: string) => new Request("http://x/api/worker/claim", { method: "POST", headers: { authorization: `Bearer ${t}` } });
+    const t = ephemeralToken(60);
+    expect(workerAuth(req(t))).toEqual({ workerId: "worker" });
+    expect((workerAuth(req(ephemeralToken(-1))) as Response).status).toBe(401); // expired
+    expect((workerAuth(req(t.replace(/\.(\d+)\./, (_, e) => `.${+e + 3600}.`))) as Response).status).toBe(401); // extended expiry, old signature
+    expect((workerAuth(req("eph.9999999999.abc")) as Response).status).toBe(401);
+    delete process.env.WORKER_TOKEN;
+  });
 });
 
 describe("owner account", () => {
@@ -36,5 +48,19 @@ describe("OCR back-check metrics", () => {
     expect(cer("hello world", "hello  world")).toBe(0);
     expect(cer("abcd", "abxd")).toBe(0.25);
     expect(missedWords("Aim: verify Ohm's law", "aim verify ohms law")).toEqual(["ohm's"]);
+  });
+});
+
+describe("kaggle run script", () => {
+  it("carries only the short-lived token, never WORKER_TOKEN", async () => {
+    process.env.WORKER_TOKEN = "permanent-secret-token";
+    const { kaggleScript } = await import("@/lib/server/gpu");
+    const eph = ephemeralToken(60);
+    const py = kaggleScript("https://site.example", eph);
+    expect(py).toContain(JSON.stringify(eph));
+    expect(py).not.toContain("permanent-secret-token");
+    expect(py).toMatch(/worker\.py", "--drain"/);
+    execFileSync("python", ["-I", "-c", "import ast, sys; ast.parse(sys.stdin.read())"], { input: py }); // valid Python
+    delete process.env.WORKER_TOKEN;
   });
 });

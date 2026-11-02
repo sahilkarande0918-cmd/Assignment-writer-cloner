@@ -140,20 +140,25 @@ def load():
     return gen, reader
 
 
-def serve(gen, reader, once=False, drain=False, poll=5.0):
-    """Claim and handle jobs. once: at most one job. drain: until the queue is empty."""
+def serve(gen, reader, once=False, drain=False, poll=5.0, idle=0.0):
+    """Claim and handle jobs. once: at most one job. drain: exit once the queue has been empty for `idle` seconds
+    (a cloud GPU that took minutes to start stays briefly for the next student's job)."""
     print(f"worker {WORKER_ID} polling {API} with {gen.name} on {gen.device}; word check: {reader.name if reader else 'off'}")
+    last = time.time()
     while True:
         try:
             r = http("POST", "/api/worker/claim", json={"model": gen.name, "device": gen.device})
             if r.status_code == 200:
                 handle(r.json()["job"], gen, reader)
+                last = time.time()
                 if once:
                     return
                 continue
+            if r.status_code == 401:
+                sys.exit("Worker token rejected (expired or wrong); stopping.")
             if r.status_code != 204:
                 print(f"claim failed: {r.status_code} {r.text[:200]}")
-            elif drain:
+            elif drain and time.time() - last >= idle:
                 return
         except requests.RequestException as e:
             print(f"server unreachable: {e}")
@@ -168,6 +173,7 @@ def main():
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--drain", action="store_true")
     ap.add_argument("--poll", type=float, default=5.0)
+    ap.add_argument("--idle", type=float, default=0.0, help="with --drain: seconds to wait for new jobs before exiting")
     a = ap.parse_args()
     info = check()
     print(json.dumps(info, indent=2))
@@ -177,7 +183,7 @@ def main():
         sys.exit("Set HW_WORKER_TOKEN to the server's WORKER_TOKEN.")
     if info["models_missing"]:
         sys.exit("Model files missing; run download_models.py first.")
-    serve(*load(), once=a.once, drain=a.drain, poll=a.poll)
+    serve(*load(), once=a.once, drain=a.drain, poll=a.poll, idle=a.idle)
 
 
 if __name__ == "__main__":
