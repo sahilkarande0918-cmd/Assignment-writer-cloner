@@ -29,4 +29,7 @@ Next.js 16 App Router (`src/app`), client-heavy studio in `src/components/studio
 - In the Bash tool, heredocs mangle backslashes — write files containing `\` with the Write tool.
 
 ## Current phase
-All five phases complete and pushed (phase 5 = `9d9b9d8`; last verified push `91356d9`). Deployed: https://assignment-writer-cloner.vercel.app (main auto-deploys). Repo lives at `D:\Assignment writer_cloner`. Details: `docs/CONTEXT_SNAPSHOT.md`, `docs/PROJECT_STATUS.md`.
+All five phases complete. Post-phase update (2026-11-02): public accounts (Neon Auth, owner = verified
+sahilkarande0918@gmail.com, others 3 generations), every character written (font fallback), live progress bar, Modal
+cloud GPU code (deploy blocked until the owner adds a Modal payment method). Last verified push `d0a360c`.
+Deployed: https://assignment-writer-cloner.vercel.app. Details: `docs/PROJECT_STATUS.md`, `docs/CONTEXT_SNAPSHOT.md`.

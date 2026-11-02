@@ -67,5 +67,24 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 - Smoke test against the live URL: 21/21 passed — landing + security headers, /studio -> /login, 401s without session/worker token, wrong password refused, owner sign-in (Secure HttpOnly cookie), Groq models available, worker status, create project on production Neon, signed upload -> server verification -> signed download (same bytes), library listing, delete (404 afterwards). Test project removed.
 - First deploy served 404s because the project preset was "Other"; fixed with `vercel.json` (`framework: nextjs`).
 
+## Post-phase update — accounts, every character, progress, cloud GPU (2026-11-02, owner request)
+- **Every character is written**: characters outside DiffusionPen's 80-char charset are drawn from Caveat / DejaVu Sans,
+  sized and inked like the words, listed in the manifest (`font_drawn`) and in the studio (ADR-029).
+- **Live progress bar**: worker heartbeat every 4 s with stage, words done, percent, ETA (`render_jobs.progress`).
+- **Accounts** (ADR-027): Neon Auth email sign-up with emailed 6-digit code (production), password reset by code.
+  Owner = verified `sahilkarande0918@gmail.com`, unlimited; everyone else 3 generations (handwriting jobs + AI plans),
+  then paused (HTTP 402). Data scoped per user. Old owner password removed — the owner must sign up once.
+- **Cloud GPU** (ADR-028): `workers/handwriting/modal_app.py`; Generate wakes a Modal L4 container that drains the queue.
+  **Blocked:** Modal refuses GPU functions until a payment method is added to the owner's Modal account
+  (Modal includes $30/month credit). Until then `GPU_TRIGGER_URL` is unset and the studio shows "GPU worker offline";
+  the local worker (`run-worker.ps1 -Api https://assignment-writer-cloner.vercel.app`) still serves jobs.
+- Commits: `638769b` (worker), `d0a360c` (app) — pushed, `git ls-remote` matched `d0a360c`; Vercel production Ready.
+- Migration `0001_accounts_progress` applied to dev and production.
+
 ## Next action
-Owner: sign in at the production URL with the password in `.owner-password`; run the GPU worker with `workers\handwriting\run-worker.ps1 -Api https://assignment-writer-cloner.vercel.app` when generating handwriting. Optional follow-ups: LibreOffice DOCX->PDF in the worker, authorised-sample similarity study.
+1. Owner adds a payment method at modal.com (Settings → Billing), then:
+   `cd workers\handwriting; .\.venv\Scripts\modal deploy modal_app.py` → copy the `trigger` URL →
+   `vercel env add GPU_TRIGGER_URL production` (paste URL) → `vercel deploy --prod` (or push).
+2. Owner signs up at https://assignment-writer-cloner.vercel.app/login with sahilkarande0918@gmail.com (code by email).
+3. Before many students: custom SMTP for Neon Auth emails (shared SMTP is rate-limited).
+Optional: LibreOffice DOCX->PDF in the worker; authorised-sample similarity study.

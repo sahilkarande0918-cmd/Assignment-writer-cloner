@@ -1,5 +1,6 @@
 # Handoff
 
+> Latest: accounts + cloud GPU update (see PROJECT_STATUS "Post-phase update"); Modal GPU blocked on a payment method.
 > Full recovery snapshot: `docs/CONTEXT_SNAPSHOT.md` (state, versions, env names, ML results, schema, restart commands).
 
 ## Resume
@@ -37,8 +38,12 @@ Phase 2: document intake (PDF.js/JSZip/docx-preview/Tesseract), Groq plan + tran
 ## Deployment
 - https://assignment-writer-cloner.vercel.app — Vercel project `assignment-writer-cloner` (team `sahilkarande0918-9163s-projects`); `main` auto-deploys. Manual: `vercel deploy --prod --scope sahilkarande0918-9163s-projects`. Env vars: `vercel env add NAME production` (value via stdin); storage uses `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
 
+## Commands added after phase 5
+- `neon neon-auth status|config email-password get --project-id ancient-fog-17705922 --branch production|dev`
+- `workers\handwriting\.venv\Scripts\modal deploy modal_app.py` (needs Modal token + payment method; secret `assignment-studio` holds HW_API_URL + HW_WORKER_TOKEN)
+- E2E signs up a fresh user on the dev branch (no email verification there); `GENERATE_LIVE=1` runs live generation with a local worker on `HW_API_URL=http://localhost:3100`.
+
 ## Commands added in phase 5
-- `node scripts/set-owner-password.mjs [password]` — writes `OWNER_PASSWORD_HASH` to `.env.local`, plaintext to `.owner-password` (both git-ignored).
 - `npm run db:migrate:dev` / `npm run db:migrate:prod` — apply `drizzle/` migrations (dev first).
 - `npx drizzle-kit generate --name <change>` — new migration after editing `src/lib/server/db/schema.ts`.
 - `neon env pull --project-id ancient-fog-17705922 --branch dev --file .env.test.local -s postgres -s object-storage` (+ `STORAGE_BUCKET=assignment-files`) — test env.

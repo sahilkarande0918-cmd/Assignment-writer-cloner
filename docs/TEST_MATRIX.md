@@ -18,6 +18,18 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — accounts / characters / progress / cloud GPU (executed 2026-11-02)
+| Suite | Result |
+|---|---|
+| Worker pytest (simulated generator) | 8 passed — incl. `50%`, `°C`, `£`, `©`, `{}`, `[]`, `α≤β`, `™` written; CJK refused clearly; progress stages |
+| Live GPU render with symbols (RTX 5050) | `%<=>@[\]{|}~£¥§©«®°»™` drawn on baseline, pen colour; screenshot reviewed |
+| Unit (Vitest) | 50 passed / 17 skipped |
+| Integration (Neon dev) | 7/7 — incl. user isolation (projects, uploads, jobs) and 3-generation limit (cancelled free, owner never paused) |
+| E2E (Playwright, dev branch, fresh signed-up user) | all non-live passed; sign-in error, 401s, redirect `?next=`, offline queue with indeterminate progress bar |
+| Live E2E (`GENERATE_LIVE=1`, local GPU worker) | 2/2 — progress bar showed `N% — Writing words`; symbols listed as font-drawn; Convert flow |
+| Production smoke | `/login` shows sign-up; `/api/me`, `/api/projects`, `/api/worker/status` 401 signed out; `/studio` → `/login?next=`; auth proxy `get-session` 200 |
+| Not verified | production sign-up email delivery (owner must sign up); Modal GPU run (blocked on payment method) |
+
 ## Results — phase 5 (executed 2026-11-02; E2E + integration on Neon `dev` branch)
 | Suite | Command | Result |
 |---|---|---|

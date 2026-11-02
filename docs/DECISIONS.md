@@ -116,3 +116,31 @@ starved autosave). Every Groq route is owner-only. Security headers on all respo
 + `*.neon.tech` for signed URLs, `wasm-unsafe-eval`, `frame-ancestors 'none'`), nosniff, DENY framing, strict referrer,
 Permissions-Policy, HSTS, `X-Robots-Tag: noindex`. `'unsafe-inline'` remains for scripts because Next inlines its
 bootstrap without nonces (ponytail: nonce-based CSP if the app ever renders untrusted HTML).
+
+## ADR-027 Public accounts with a free tier (2026-11-02, owner request)
+Owner asked for anyone to sign up by email, with the owner's address unlimited and everyone else limited to 3
+generations, then paused. Neon Auth (managed Better Auth in the same Neon project — no new provider) replaces the
+single-owner scrypt password: email + password, sign-up confirmed with an emailed 6-digit code on production (shared
+Neon SMTP; custom SMTP is the production upgrade), password reset by code. Owner = **verified** account whose email is
+`OWNER_EMAIL` (an unverified sign-up with that address gets nothing extra). `projects.user_id` / `render_jobs.user_id`
+scope every query; another user's id behaves as "not found"; legacy rows (NULL) belong to the owner. A "generation" is a
+handwriting job (queued/running/succeeded; failed and cancelled are free) or a successful AI edit plan
+(`usage_events`); vision transcription and manual edits are free. ponytail: quota is check-then-insert (a simultaneous
+double request can pass the last slot).
+
+## ADR-028 Cloud GPU on Modal, started per job (2026-11-02, owner request)
+Users must not run commands or install anything. Vercel has no GPUs; Modal runs the existing worker unchanged
+(`modal_app.py`): POST `/api/jobs` queues the job and calls a Modal web endpoint (`GPU_TRIGGER_URL`, bearer
+`WORKER_TOKEN`) that spawns a GPU function; it loads the models and drains the queue through the same outbound worker
+API, then exits (scale to zero). Weights are downloaded from Hugging Face during the image build. Missed triggers are
+covered by `nudgeGpu` (a job still queued after 2 min re-triggers, at most once per 2 min, using `updated_at` as the
+marker). L4 GPU, `max_containers=3`. Rejected: Hugging Face ZeroGPU (PRO plan, per-call time caps would need chunking),
+RunPod (Docker image build/push). The local worker still works for development.
+
+## ADR-029 Characters outside the model's charset (2026-11-02, owner request)
+DiffusionPen only writes the 80 IAM characters, so an assignment with `% @ £ © ° ™ { }` failed. Words are split into
+model-writable runs and other characters; the runs are generated as before, the others are drawn from Caveat (OFL
+handwriting font) or DejaVu Sans (Greek/maths) at the computed x-height, inked in the pen colour and baseline-joined into
+one word image. They are not in the writer's style, so the manifest lists them (`font_drawn`) and the studio says so.
+Only characters no bundled font has (e.g. CJK) are refused. Progress: the worker heartbeat (every 4 s) carries
+`{stage, done, total, percent, eta}`, stored in `render_jobs.progress` and drawn as a progress bar.

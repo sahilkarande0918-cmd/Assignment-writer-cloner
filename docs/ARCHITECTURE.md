@@ -46,10 +46,20 @@ shows composite / paper-only / ink-only previews, line regeneration, OCR back-ch
 
 ## Persistence and auth (phase 5)
 - `src/lib/server/db` (Drizzle schema + client), `storage.ts` (signed URLs, prefix delete, copy), `projects.ts`
-  (repository + optimistic locking), `jobs.ts` (queue), `auth.ts` + `password.ts` (owner session), `http.ts`
-  (`ownerRoute` / `workerRoute` wrappers: auth, same-origin, size + rate limits, safe errors).
-- Routes: `/api/projects` (+ `[id]`, `duplicate`, `files`, `files/[fileId]/confirm`, `versions`), `/api/auth/login|logout`,
-  jobs and worker routes. Pages `/studio` and `/library` are gated by `src/proxy.ts`; `/login` is public.
+  (repository + optimistic locking, every call scoped to the user), `jobs.ts` (queue), `auth.ts` (Neon Auth session),
+  `usage.ts` (free tier), `gpu.ts` (Modal trigger), `http.ts` (`userRoute` / `workerRoute` wrappers: session,
+  same-origin, size + rate limits, safe errors). Account rules in `src/lib/account.ts`.
+- Routes: `/api/projects` (+ `[id]`, `duplicate`, `files`, `files/[fileId]/confirm`, `versions`), `/api/auth/[...path]`
+  (Neon Auth proxy), `/api/me` (user + quota), jobs and worker routes. Pages `/studio` and `/library` are gated by
+  `src/proxy.ts` (Neon Auth middleware); `/login` (sign in, sign up, email code, password reset) is public.
 - Upload flow: browser → `POST files` (signed PUT) → PUT to bucket → `POST confirm` (size + signature) → row ready.
 - Studio: `use-cloud.ts` (lazy create, serialized autosave queue, upload, version save, load) restores everything on
   `/studio?project=<id>`.
+
+## Accounts, free tier and cloud GPU (2026-11-02)
+- Neon Auth (managed Better Auth, `neon_auth` schema) holds users; production requires an emailed 6-digit code at
+  sign-up. Owner = verified `OWNER_EMAIL`: unlimited. Others: 3 generations (handwriting jobs + AI edit plans), then 402.
+- Generate → `POST /api/jobs` → row queued → `after()` POSTs `GPU_TRIGGER_URL` → Modal `trigger` spawns `drain` on an L4
+  GPU → `worker.serve(drain=True)` claims jobs over the worker API, heartbeats progress every 4 s, uploads artifacts,
+  exits when the queue is empty. `GET /api/jobs/[id]` re-triggers a job still queued after 2 min (`nudgeGpu`).
+- Characters outside DiffusionPen's charset: `hw/glyphs.py` draws them from Caveat / DejaVu Sans (ADR-029).

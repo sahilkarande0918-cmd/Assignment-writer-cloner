@@ -4,6 +4,12 @@ Written 2026-11-02 before context compaction. Source of truth for requirements: 
 Read order for a new session: `master_prompt.md` → `CLAUDE.md` → this file → `docs/PROJECT_STATUS.md` → `docs/HANDOFF.md`
 → `docs/DECISIONS.md` → `git log -5 --oneline && git status`.
 
+## 0. Update after this snapshot (2026-11-02, later)
+Accounts (Neon Auth), font fallback for all characters, progress bar and Modal cloud GPU were added — see
+`docs/PROJECT_STATUS.md` "Post-phase update" and ADR-027..029. The owner-password sections below are superseded:
+`OWNER_PASSWORD_HASH`/`SESSION_SECRET`/`.owner-password` are no longer used; env now needs `NEON_AUTH_BASE_URL`,
+`NEON_AUTH_COOKIE_SECRET`, optional `OWNER_EMAIL`, `GPU_TRIGGER_URL`. Last verified push `d0a360c`.
+
 ## 1. Where the project stands
 - **All five phases are complete, tested, committed separately and pushed.** Phase 5 includes the Vercel deployment.
 - Last verified push: **`91356d9e47e699575abd6dbeaebc58fdc17ac877`** on `main` (`git ls-remote origin main` matched).
