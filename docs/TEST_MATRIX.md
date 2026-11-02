@@ -18,6 +18,17 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — free Kaggle GPU (executed 2026-11-02, production queue)
+| Check | Result |
+|---|---|
+| Kaggle credentials / quota | API token accepted; 30 h GPU quota visible |
+| Before phone verification | run had no internet (`Could not resolve host: github.com`) — owner verified the phone |
+| Kaggle image transformers | could not load the TrOCR tokenizer → run now pins transformers 5.22.1 / tokenizers 0.23.3 / diffusers 0.42.1 |
+| `KAGGLE_LIVE=1` live test (cold) | passed: queued → running at 88 s → succeeded at 99 s; GPU generation 14.6 s; Tesla T4, CUDA ok |
+| Same, warm run | passed in 26 s |
+| Output review | symbols `% ° £ © { } [ ]` correct; punctuation blob after `]` fixed; model misspellings remain ("Kaggle"→"Rogle", "5"→"3") |
+| Run lifecycle | exits after 5 min idle (status COMPLETE); no second run while one is active |
+
 ## Results — accounts / characters / progress / cloud GPU (executed 2026-11-02)
 | Suite | Result |
 |---|---|

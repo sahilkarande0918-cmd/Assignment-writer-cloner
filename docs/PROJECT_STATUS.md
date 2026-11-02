@@ -74,17 +74,18 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 - **Accounts** (ADR-027): Neon Auth email sign-up with emailed 6-digit code (production), password reset by code.
   Owner = verified `sahilkarande0918@gmail.com`, unlimited; everyone else 3 generations (handwriting jobs + AI plans),
   then paused (HTTP 402). Data scoped per user. Old owner password removed — the owner must sign up once.
-- **Cloud GPU** (ADR-028): `workers/handwriting/modal_app.py`; Generate wakes a Modal L4 container that drains the queue.
-  **Blocked:** Modal refuses GPU functions until a payment method is added to the owner's Modal account
-  (Modal includes $30/month credit). Until then `GPU_TRIGGER_URL` is unset and the studio shows "GPU worker offline";
-  the local worker (`run-worker.ps1 -Api https://assignment-writer-cloner.vercel.app`) still serves jobs.
+- **Cloud GPU — Kaggle, free, live** (ADR-030): Generate starts a private Kaggle script run (`assignment-studio-gpu`,
+  T4, owner's account `sahilkarande0918`, ~30 GPU h/week) that clones this repo, installs the locally tested library
+  versions, downloads the weights and runs `worker.py --drain --idle 300`. Verified on production: cold start 99 s
+  total (generation 14.6 s), warm 26 s; progress, font-drawn symbols and best-of-3 word check all present; the run
+  exits by itself (status COMPLETE). Modal (ADR-028) remains as a paid alternative; it is not deployed (no card).
 - Commits: `638769b` (worker), `d0a360c` (app) — pushed, `git ls-remote` matched `d0a360c`; Vercel production Ready.
 - Migration `0001_accounts_progress` applied to dev and production.
 
 ## Next action
-1. Owner adds a payment method at modal.com (Settings → Billing), then:
-   `cd workers\handwriting; .\.venv\Scripts\modal deploy modal_app.py` → copy the `trigger` URL →
-   `vercel env add GPU_TRIGGER_URL production` (paste URL) → `vercel deploy --prod` (or push).
+1. Precision follow-up (owner priority): DiffusionPen still misspells some words/digits even with best-of-3
+   (live check: "Kaggle"→"Rogle", "5"→"3"). Candidate fix: regenerate words whose TrOCR read-back is wrong until exact
+   (bounded), measured with the same live test.
 2. Owner signs up at https://assignment-writer-cloner.vercel.app/login with sahilkarande0918@gmail.com (code by email).
 3. Before many students: custom SMTP for Neon Auth emails (shared SMTP is rate-limited).
 Optional: LibreOffice DOCX->PDF in the worker; authorised-sample similarity study.
