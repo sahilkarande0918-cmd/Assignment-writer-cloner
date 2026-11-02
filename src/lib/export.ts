@@ -119,6 +119,25 @@ async function zipped(name: string, files: Uint8Array[], ext: string): Promise<E
   return { blob: await zip.generateAsync({ type: "blob" }), filename: `${name}-${ext}.zip` };
 }
 
+/** Handwriting Clone / Convert: the generated handwritten pages (PNG bytes) and the text they were written from. */
+export async function exportGenerated(pages: Uint8Array[], text: string, name: string, req: ExportRequest): Promise<ExportResult> {
+  if (!pages.length) throw new Error("Generate the handwriting first.");
+  const n = `${base(name)}-handwritten`;
+  switch (req.format) {
+    case "pdf":
+      return { blob: new Blob([(await imagesToPdf(pages, req.pageSize)) as BlobPart], { type: MIME.pdf }), filename: `${n}.pdf` };
+    case "png":
+    case "jpeg":
+      return zipped(n, await pdfToImages(await imagesToPdf(pages, req.pageSize), req.dpi, req.format), req.format);
+    case "docx":
+      throw new Error("Handwritten pages are images: export PDF, PNG or JPEG.");
+    case "txt":
+      return { blob: new Blob([text.replace(/\f/g, "\n\n")], { type: MIME.txt }), filename: `${n}.txt` };
+    case "md":
+      return { blob: new Blob([text.replace(/\f/g, "\n\n---\n\n") + "\n"], { type: MIME.md }), filename: `${n}.md` };
+  }
+}
+
 export async function exportDocument(src: ExportSource, req: ExportRequest): Promise<ExportResult> {
   const why = exportUnavailable(src.kind, req.format);
   if (why) throw new Error(why);

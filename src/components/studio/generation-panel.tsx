@@ -82,7 +82,7 @@ export function GenerationPanel({
   layout: LayoutSettings;
   projectId: string | null;
   contentFrom: string; // where the text comes from, for the summary line
-  onPages: (v: GeneratedSet) => void;
+  onPages: (v: GeneratedSet, text?: string) => void; // text: what the pages were written from
 }) {
   const [worker, setWorker] = useState<Worker>();
   const [quota, setQuota] = useState<Quota>();
@@ -119,10 +119,10 @@ export function GenerationPanel({
       }
       setJob(j.job);
       setWorker(j.worker);
-      if (j.job.status === "succeeded") onPages(artifactSet(j.job.id, j.job.artifacts));
+      if (j.job.status === "succeeded") onPages(artifactSet(j.job.id, j.job.artifacts), sentText);
     }, 2000);
     return () => window.clearTimeout(timer.current);
-  }, [job, onPages]);
+  }, [job, onPages, sentText]);
 
   async function submit(nextBumps = bumps) {
     if (!reference) return;

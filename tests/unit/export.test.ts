@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { exportDocument, exportUnavailable, type ExportSource } from "@/lib/export";
+import { exportDocument, exportGenerated, exportUnavailable, type ExportSource } from "@/lib/export";
 import type { DocModel } from "@/lib/doc/model";
 
 const OUT = "test-results/exports";
@@ -53,6 +53,20 @@ describe.skipIf(!python)("exports reopen in independent readers", () => {
     expect(pngs).toHaveLength(2);
     expect(pngs[0]).toMatchObject({ type: "png", size: [1241, 1754] }); // A4 (595.28 pt) at 150 dpi, rounded outward
     expect(Object.values(v[jpg.path].members)[0]).toMatchObject({ type: "jpeg", size: [596, 842] });
+  });
+
+  it("handwriting modes export the generated pages, not the uploaded source", { timeout: 60_000 }, async () => {
+    const page = new Uint8Array(readFileSync("tests/fixtures/ruled-page.png")); // stands in for a generated page
+    const text = "Name: Sakshi Sandeep Kokre\nPRN: 202501110191\fpage two";
+    const r = await exportGenerated([page, page], text, "Uhv IA-1.pdf", { format: "pdf", dpi: 150, pageSize: "A4" });
+    expect(r.filename).toBe("Uhv IA-1-handwritten.pdf");
+    const path = `${OUT}/${r.filename}`;
+    writeFileSync(path, new Uint8Array(await r.blob.arrayBuffer()));
+    expect(verify([path])[path]).toMatchObject({ type: "pdf", pages: 2 });
+    const txt = await exportGenerated([page], text, "Uhv IA-1.pdf", { format: "txt", dpi: 150, pageSize: "A4" });
+    expect(await txt.blob.text()).toBe("Name: Sakshi Sandeep Kokre\nPRN: 202501110191\n\npage two"); // the edited text
+    await expect(exportGenerated([page], text, "x", { format: "docx", dpi: 150, pageSize: "A4" })).rejects.toThrow(/images/);
+    await expect(exportGenerated([], text, "x", { format: "pdf", dpi: 150, pageSize: "A4" })).rejects.toThrow(/Generate/);
   });
 
   it("text sources typeset to PDF in the chosen page size; DOCX, TXT and MD exports reopen", { timeout: 60_000 }, async () => {

@@ -26,7 +26,7 @@ import { SignOut } from "@/components/sign-out";
 import type { InputKind } from "@/lib/formats";
 import { DiffView } from "./diff-view";
 import { applyPlan, verifyApplied, type OpReport } from "@/lib/edit/apply";
-import { exportDocument, exportUnavailable } from "@/lib/export";
+import { exportDocument, exportGenerated, exportUnavailable } from "@/lib/export";
 import { lineDiff } from "@/lib/diff";
 import type { ResolvedOp } from "@/lib/plan";
 
@@ -69,6 +69,7 @@ export function Studio() {
   const [transcript, setTranscript] = useState("");
   const [transcriptOk, setTranscriptOk] = useState(false);
   const [generated, setGenerated] = useState<GeneratedSet>({ pages: [], ink: [] });
+  const [generatedText, setGeneratedText] = useState<string | null>(null); // text of the last generation (null: unknown)
   const cloud = useCloudProject();
   const loadProject = cloud.load;
   const [initialId] = useState(cloud.projectId);
@@ -336,15 +337,40 @@ export function Studio() {
               Library
             </Link>
             <SignOut className="hidden px-2 text-sm text-ink-2 hover:text-ink md:inline" />
-            <ExportDialog
-              pageSize={layout.pageSize}
-              disabledReason={!uploads.source ? "Add a document first." : !ready ? "Wait for the current version to finish loading." : undefined}
-              unavailable={(f) => (ready ? exportUnavailable(ready.loaded.model.kind, f) : null)}
-              onExport={async (req) => {
-                const up = currentVersion?.upload ?? uploads.source!;
-                return exportDocument({ bytes: new Uint8Array(await up.file.arrayBuffer()), kind: up.kind, model: ready!.loaded.model, name: name || up.file.name }, req);
-              }}
-            />
+            {mode === "clone" || mode === "convert" ? (
+              // Handwriting modes: Export saves the generated pages, never the uploaded source.
+              <ExportDialog
+                pageSize={layout.pageSize}
+                description="Exports the generated handwritten pages. Choose a format, page size and image resolution."
+                disabledReason={
+                  !generated.pages.length
+                    ? "Generate the handwriting first: Export saves the generated pages."
+                    : generatedText !== null && generatedText !== (composing ? content : transcript)
+                      ? "The text changed after the last generation (for example a name or PRN). Generate again so the export includes it."
+                      : undefined
+                }
+                unavailable={(f) => (f === "docx" ? "Handwritten pages are images: export PDF, PNG or JPEG." : null)}
+                onExport={async (req) => {
+                  const pages = await Promise.all(generated.pages.map(async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer())));
+                  return exportGenerated(pages, generatedText ?? (composing ? content : transcript), name || "assignment", req);
+                }}
+              />
+            ) : (
+              <ExportDialog
+                pageSize={layout.pageSize}
+                description={
+                  currentVersion
+                    ? undefined
+                    : "No change has been applied yet, so this exports the ORIGINAL document. Apply an edit first (Plan or Find & replace, then Apply) to export the changed version. For handwritten scans, use Convert Handwriting to rewrite the page with corrected text."
+                }
+                disabledReason={!uploads.source ? "Add a document first." : !ready ? "Wait for the current version to finish loading." : undefined}
+                unavailable={(f) => (ready ? exportUnavailable(ready.loaded.model.kind, f) : null)}
+                onExport={async (req) => {
+                  const up = currentVersion?.upload ?? uploads.source!;
+                  return exportDocument({ bytes: new Uint8Array(await up.file.arrayBuffer()), kind: up.kind, model: ready!.loaded.model, name: name || up.file.name }, req);
+                }}
+              />
+            )}
           </div>
         </div>
         <nav aria-label="Studio mode" className="flex gap-1 overflow-x-auto border-t border-line px-3 sm:px-5">
@@ -600,7 +626,10 @@ export function Studio() {
               }
               layout={layout}
               projectId={cloud.projectId}
-              onPages={setGenerated}
+              onPages={(set, text) => {
+                setGenerated(set);
+                setGeneratedText(text ?? null);
+              }}
             />
           )}
 

@@ -227,3 +227,12 @@ rewrites are unchanged. Findings while integrating:
 Measured: Uhv page 1 table in its own handwriting 106/110 exact (DiffusionPen 100/110), 30 s vs 52 s; 69-word lab
 report 68/69 exact, CER 1.5 %, 7 s (DiffusionPen 53/69, 10.3 %, 44.5 s). DiffusionPen stays available with
 HW_ENGINE=diffusionpen. Weights: MIT code, trained on IAM (non-commercial research data), like DiffusionPen.
+
+## ADR-036 Export saves what the mode produces (2026-11-02, owner bug report)
+Report: after changing the name and PRN, Export returned the original scan. Export always saved the uploaded source
+(or its latest applied edit), but in Convert / Handwriting Clone the edits live in the text that is handwritten and
+the result is the generated pages. Now: in those modes Export saves the generated pages (PDF, PNG/JPEG at the chosen
+DPI; TXT/MD = the written text; DOCX refused), is disabled until something is generated, and is blocked when the text
+changed after the last generation ("generate again"). In Edit/Digital modes, exporting with no applied change says it
+is the ORIGINAL and points handwritten scans to Convert Handwriting (find & replace needs readable text positions,
+which the local OCR cannot give for handwriting).

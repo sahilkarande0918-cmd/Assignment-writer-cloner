@@ -20,11 +20,13 @@ export function ExportDialog({
   onExport,
   disabledReason,
   unavailable,
+  description = "Exports the current version. Choose a format, page size and image resolution.",
 }: {
   pageSize: PageSize;
   onExport?: (r: ExportRequest) => Promise<ExportResult>;
   disabledReason?: string;
   unavailable?: (f: ExportFormat) => string | null;
+  description?: string;
 }) {
   const [format, setFormat] = useState<ExportFormat>("pdf");
   const [dpi, setDpi] = useState(200);
@@ -68,7 +70,7 @@ export function ExportDialog({
               <X className="size-4" />
             </Dialog.Close>
           </div>
-          <Dialog.Description className="mt-1 text-sm text-muted">Exports the current version. Choose a format, page size and image resolution.</Dialog.Description>
+          <Dialog.Description className="mt-1 text-sm text-muted">{description}</Dialog.Description>
           <fieldset className="mt-5 grid grid-cols-2 gap-2">
             <legend className="sr-only">Format</legend>
             {FORMATS.map((f) => {
