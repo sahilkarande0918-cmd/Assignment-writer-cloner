@@ -1,6 +1,6 @@
 # Handoff
 
-> Latest: accounts + free Kaggle cloud GPU live (PROJECT_STATUS "Post-phase update"). Live GPU test: `KAGGLE_LIVE=1 npm run test:live -- kaggle` (production queue, cleans up).
+> Latest: VATr++ default engine, AI reading of scans, handwritten tables (ADR-033…035); accounts + free Kaggle cloud GPU live (PROJECT_STATUS "Post-phase update"). Live GPU test: `KAGGLE_LIVE=1 npm run test:live -- kaggle` (production queue, cleans up).
 > Full recovery snapshot: `docs/CONTEXT_SNAPSHOT.md` (state, versions, env names, ML results, schema, restart commands).
 
 ## Resume

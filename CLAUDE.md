@@ -31,5 +31,5 @@ Next.js 16 App Router (`src/app`), client-heavy studio in `src/components/studio
 ## Current phase
 All five phases complete. Post-phase update (2026-11-02): public accounts (Neon Auth, owner = verified
 sahilkarande0918@gmail.com, others 3 generations), every character written (font fallback), live progress bar, Modal
-free Kaggle cloud GPU live (ADR-030; Modal kept as paid alternative). Last verified push: see `git log`.
+free Kaggle cloud GPU live (ADR-030; Modal kept as paid alternative); VATr++ default engine, scans read by Groq vision, handwritten tables (ADR-033…035). Last verified push: see `git log`.
 Deployed: https://assignment-writer-cloner.vercel.app. Details: `docs/PROJECT_STATUS.md`, `docs/CONTEXT_SNAPSHOT.md`.

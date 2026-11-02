@@ -82,6 +82,12 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 - Commits: `638769b` (worker), `d0a360c` (app) — pushed, `git ls-remote` matched `d0a360c`; Vercel production Ready.
 - Migration `0001_accounts_progress` applied to dev and production.
 
+- **Engine switch (ADR-033…035):** content from scans is read with Groq vision (tables kept), garbled text is flagged,
+  upload cards say which file gives the text vs the style (Swap button), tables are written as ruled handwritten
+  tables, and **VATr++ is the default handwriting engine** (DiffusionPen via HW_ENGINE=diffusionpen). Owner's Uhv
+  table: 106/110 words exact; lab report 68/69 exact in 7 s. Verified on Kaggle: T4, VATr++ loads, polls, exits.
+  Not yet run end-to-end from the live site with VATr++ (this PC's DNS to Neon was failing during testing).
+
 ## Next action
 1. Precision follow-up (owner priority): DiffusionPen still misspells some words/digits even with best-of-3
    (live check: "Kaggle"→"Rogle", "5"→"3"). Candidate fix: regenerate words whose TrOCR read-back is wrong until exact
