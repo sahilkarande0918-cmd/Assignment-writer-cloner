@@ -260,14 +260,15 @@ export function GenerationPanel({
               </div>
               {m.word_check && (
                 <p className="text-xs text-ink-2">
-                  Word check ({m.word_check.model}, best of {m.word_check.candidates}): {m.word_check.exact_words}/{m.word_check.words} words read back exactly, character error rate{" "}
+                  Word check ({m.word_check.model}, best of {m.word_check.candidates}): {m.word_check.exact_words}/{m.word_check.words} words read back exactly
+                  {m.word_check.exact_first_pass !== undefined && m.word_check.exact_first_pass < m.word_check.exact_words && ` (${m.word_check.exact_first_pass} before rewriting doubtful words)`}, character error rate{" "}
                   {(m.word_check.cer * 100).toFixed(1)}%.
                   {m.word_check.doubtful.length > 0 && ` Doubtful: ${m.word_check.doubtful.map((d) => `${d.word} (read “${d.read}”)`).slice(0, 8).join(", ")} — regenerate those lines below.`}
                 </p>
               )}
               {!!m.font_drawn?.length && (
                 <p className="text-xs text-ink-2">
-                  Drawn from a handwriting font (the model cannot write them): {m.font_drawn.join(" ")}
+                  Drawn from a handwriting font for accuracy (digits, symbols and lone punctuation): {m.font_drawn.join(" ")}
                 </p>
               )}
               {[...m.paper.notes, ...m.normalised, ...m.issues].map((n) => (

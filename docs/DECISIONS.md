@@ -157,3 +157,15 @@ HMAC-signed worker token (`ephemeralToken`), never `WORKER_TOKEN`. No new run is
 while a worker (e.g. the owner's PC) is polling. Jobs no GPU claims within 60 minutes fail with a clear message.
 Risks: Kaggle's terms do not explicitly cover use as a website backend; start-up takes ~3–5 minutes; one run at a time
 works jobs sequentially (ponytail: second account or Modal when concurrency matters).
+
+## ADR-031 Precision pass: rewrite doubtful words, digits from the font (2026-11-02, owner priority)
+Measured on the real model (69-word lab report, same seed, RTX 5050): best-of-3 alone left 38/69 words read back
+exactly (CER 24.5 %); digits were often wrong ("47"→"(-7", "46.8"→"H6 B") and decimal points dropped. Now:
+1. Words whose best sample is read back wrong are written again with fresh seeds, up to 3 rounds × 4 samples, keeping
+   the best reading → 50/69 exact, CER 12.2 % (time 36 s → 89 s). The checker (TrOCR-small) also selects, so these
+   numbers are an upper bound; pages were reviewed by eye as well.
+2. Digits are always drawn from the handwriting font: exact by construction and consistent on the page. A "best
+   of the model's tries, else font" rule was tried first and rejected: mixed model/font numbers looked inconsistent,
+   and the checker passed a doubtful "0.17". Letters stay generated in the writer's style.
+Remaining limit: long or rare words can still be misspelt by the model; the studio lists them (Doubtful) and
+"regenerate line" retries them.

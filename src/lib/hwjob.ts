@@ -28,7 +28,7 @@ export type HwManifest = {
   normalised: string[];
   font_drawn?: string[]; // characters outside the model charset, drawn from a handwriting font
   issues: string[];
-  word_check: { model: string; candidates: number; cer: number; exact_words: number; words: number; doubtful: { word: string; read: string }[] } | null;
+  word_check: { model: string; candidates: number; cer: number; exact_words: number; exact_first_pass?: number; rewrite_rounds?: number; words: number; doubtful: { word: string; read: string }[] } | null;
   pages: { size: [number, number]; lines: { occ: number[]; text: string }[]; words: { occ: number; word: string; box: [number, number, number, number] }[] }[];
   artifacts: { name: string; sha256: string; bytes: number }[];
   seconds: number;

@@ -123,7 +123,7 @@ def test_characters_outside_the_model_charset_are_drawn_from_a_font():
     from hw.glyphs import segments
     from hw.model import CHARSET
 
-    assert segments("50%", CHARSET) == [("50", True), ("%", False)]
+    assert segments("50%", CHARSET) == [("5", False), ("0", False), ("%", False)]
     assert segments("<a@b>", CHARSET) == [("<", False), ("a", True), ("@", False), ("b", True), (">", False)]
     # punctuation-only pieces are drawn at natural size, not stretched by the model into blobs
     assert segments("[B].", CHARSET) == [("[", False), ("B", True), ("]", False), (".", False)]
@@ -148,3 +148,43 @@ def test_characters_no_font_has_fail_clearly():
     ruled_page().save(buf, "PNG")
     with pytest.raises(ValueError, match="cannot be written: 字"):  # no CJK in Caveat or DejaVu Sans
         run({"text": "done 字", "seed": 1, "bumps": {}}, {"reference": buf.getvalue()}, SimGenerator())
+
+
+def test_words_read_back_wrong_are_rewritten_until_exact():
+    """Precision pass: the first samples of every word are "misread"; the rewrite round finds exact ones."""
+    gen = SimGenerator()
+    made = {}
+
+    def generate(words, style_imgs, seeds, progress=None):
+        imgs = SimGenerator.generate(gen, words, style_imgs, seeds, progress)
+        made.update({id(im): w for im, w in zip(imgs, words)})
+        return imgs
+
+    class FlakyReader:
+        name, calls = "flaky", 0
+
+        def read(self, images):
+            self.calls += 1
+            # first pass: every reading wrong (a dropped last letter); rewrite pass: exact
+            return [made[id(im)][:-1] if self.calls == 1 else made[id(im)] for im in images]
+
+    gen.generate = generate
+    buf = io.BytesIO()
+    ruled_page().save(buf, "PNG")
+    stages = []
+    r = run({"text": "Rs 5: done", "seed": 1, "bumps": {}}, {"reference": buf.getvalue()}, gen, reader=FlakyReader(), candidates=3,
+            progress=lambda s, d, t: stages.append(s))
+    wc = r.manifest["word_check"]
+    assert wc["exact_first_pass"] == 0 and wc["exact_words"] == wc["words"] == 2 and wc["rewrite_rounds"] == 1  # "5:" is font
+    assert wc["doubtful"] == [] and "Rewriting doubtful words" in stages
+
+
+def test_digits_are_always_drawn_from_the_font():
+    """Numbers are exact by construction; letters around them are still generated."""
+    from hw.glyphs import segments
+    from hw.model import CHARSET
+
+    assert segments("0.09,", CHARSET) == [(c, False) for c in "0.09,"]
+    assert segments("B2.", CHARSET) == [("B", True), ("2", False), (".", False)]
+    assert segments("No.", CHARSET) == [("No.", True)]
+

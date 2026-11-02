@@ -21,6 +21,7 @@ from .style import extract_style
 # Typography the IAM charset lacks, mapped to what it has. Reported in the manifest.
 NORMALISE = {"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-", "…": "...", "•": "-", " ": " "}
 PAGE_MM = {"A4": (210, 297), "Letter": (215.9, 279.4)}
+RETRY_ROUNDS, RETRY_SAMPLES = 3, 4  # precision pass for words read back wrong (see run)
 
 
 class WordGenerator(Protocol):
@@ -112,19 +113,42 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     if reader and runs:
         report("Checking each word", 0, 1)
         reads = reader.read(imgs)
-        errors = []
-        for i, (occ, k, w) in enumerate(runs):
-            options = [(word_error(w, reads[i * n + c]), c) for c in range(n)]
-            err, c = min(options)
-            chosen[(occ, k)] = imgs[i * n + c]
-            errors.append((err, w, reads[i * n + c]))
+        best: list[tuple[float, Image.Image, str]] = []  # per run: (error, image, reading)
+        for i, (_, _, w) in enumerate(runs):
+            err, c = min((word_error(w, reads[i * n + c]), c) for c in range(n))
+            best.append((err, imgs[i * n + c], reads[i * n + c]))
+        first_exact = sum(b[0] == 0 for b in best)
+        # Precision pass: a word whose best sample is read back wrong (misspelt, wrong digit, dropped colon) is
+        # written again with fresh seeds until a sample reads exactly, at most RETRY_ROUNDS x RETRY_SAMPLES more.
+        rounds = 0
+        for rnd in range(1, RETRY_ROUNDS + 1):
+            wrong = [i for i, b in enumerate(best) if b[0] > 0]
+            if not wrong:
+                break
+            rounds = rnd
+            report("Rewriting doubtful words", rnd - 1, RETRY_ROUNDS)
+            more = gen.generate(
+                [runs[i][2] for i in wrong for _ in range(RETRY_SAMPLES)],
+                crops,
+                [(seed_for(base, runs[i][0], bumps.get(runs[i][0], 0) * n + c) + runs[i][1] * 15485863 + rnd * 7368787) % (2**31) for i in wrong for c in range(RETRY_SAMPLES)],
+            )
+            more_reads = reader.read(more)
+            for j, i in enumerate(wrong):
+                for c in range(j * RETRY_SAMPLES, (j + 1) * RETRY_SAMPLES):
+                    err = word_error(runs[i][2], more_reads[c])
+                    if err < best[i][0]:
+                        best[i] = (err, more[c], more_reads[c])
+        chosen = {(occ, k): best[i][1] for i, (occ, k, _) in enumerate(runs)}
+        errors = [(b[0], runs[i][2], b[2]) for i, b in enumerate(best)]
         check_report = {
             "model": reader.name,
             "candidates": n,
             "cer": round(sum(e for e, _, _ in errors) / len(errors), 4),
             "exact_words": sum(e == 0 for e, _, _ in errors),
+            "exact_first_pass": first_exact,
+            "rewrite_rounds": rounds,
             "words": len(errors),
-            "doubtful": [{"word": w, "read": r} for e, w, r in errors if e > 0.34][:50],
+            "doubtful": [{"word": w, "read": r} for e, w, r in errors if e > 0][:50],
         }
     else:
         chosen = {(occ, k): im for (occ, k, _), im in zip(runs, imgs)}

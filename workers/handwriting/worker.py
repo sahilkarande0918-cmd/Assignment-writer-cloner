@@ -53,8 +53,8 @@ def check() -> dict:
 
 
 # Share of the overall progress bar per stage (start %, end %).
-STAGES = {"Reading the handwriting reference": (0, 3), "Writing words": (3, 88), "Checking each word": (88, 93),
-          "Laying out pages": (93, 96), "Uploading pages": (96, 100)}
+STAGES = {"Reading the handwriting reference": (0, 3), "Writing words": (3, 75), "Checking each word": (75, 80),
+          "Rewriting doubtful words": (80, 94), "Laying out pages": (94, 96), "Uploading pages": (96, 100)}
 
 
 class Heartbeat(threading.Thread):
@@ -64,7 +64,7 @@ class Heartbeat(threading.Thread):
         super().__init__(daemon=True)
         self.job_id, self.stop, self.cancelled = job_id, threading.Event(), False
         self.progress: dict = {"stage": "Starting", "percent": 0, "eta": None}
-        self._stage, self._since = "", time.time()
+        self._stage, self._since, self._finish = "", time.time(), None
 
     def update(self, stage: str, done: int, total: int):
         now = time.time()
@@ -72,10 +72,11 @@ class Heartbeat(threading.Thread):
             self._stage, self._since = stage, now
         a, b = STAGES.get(stage, (0, 0))
         pct = a + (b - a) * (done / total if total else 0)
-        eta = None
         if stage == "Writing words" and done:
-            # remaining generation at the measured rate, plus ~12% for checking, layout and upload
-            eta = round((now - self._since) / done * (total - done) * 1.12 + 5)
+            per = (now - self._since) / done
+            # remaining first pass, plus the rewrite pass (measured ~1.5x the first pass on a lab report), check, upload
+            self._finish = now + per * (total - done) + per * total * 1.5 + 10
+        eta = round(max(5, self._finish - now)) if self._finish else None
         self.progress = {"stage": stage, "done": done, "total": total, "percent": round(pct, 1), "eta": eta}
 
     def run(self):
