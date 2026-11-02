@@ -1,14 +1,26 @@
-# Handwriting worker (local GPU)
+# Handwriting worker (cloud GPU or local GPU)
 
 Generates handwriting in a reference writer's style for **Handwriting Clone** and **Convert Handwriting**.
-It runs on the owner's computer and talks to the studio **outbound only** (HTTPS polling): no open ports, no tunnel,
-no database credentials — just `WORKER_TOKEN`. When it is not running, jobs wait in the queue and the studio says so.
+In production it runs on **Modal** cloud GPUs (`modal_app.py`): pressing Generate queues a job and wakes a GPU
+container, which handles queued jobs and shuts down when the queue is empty, so users install nothing. The same
+`worker.py` can also run on a local PC. Either way it talks to the studio **outbound only** (HTTPS polling): no open
+ports, no database credentials — just `WORKER_TOKEN`. It reports progress (stage, words done, ETA) with each heartbeat.
 
 > Output approximates a writing style. It is never identical to the reference writer, and every result carries a
 > `provenance.generated = true` record. Use only handwriting you are authorised to use; signatures and identity
 > documents are out of scope.
 
-## Setup (Windows PowerShell)
+## Cloud GPU (Modal) — one-time setup by the site owner
+```powershell
+cd workers\handwriting
+.\.venv\Scripts\modal token new                                    # sign in to modal.com in the browser
+.\.venv\Scripts\modal secret create assignment-studio HW_API_URL=https://assignment-writer-cloner.vercel.app HW_WORKER_TOKEN=<WORKER_TOKEN>
+.\.venv\Scripts\modal deploy modal_app.py                          # builds the image (downloads weights from Hugging Face)
+```
+Set `GPU_TRIGGER_URL` on the server to the printed `trigger` URL. Re-run `modal deploy` after changing worker code.
+GPU: NVIDIA L4, at most 3 containers at once (`max_containers` in `modal_app.py`); idle cost is zero.
+
+## Local setup (Windows PowerShell)
 ```powershell
 powershell -ExecutionPolicy Bypass -File workers\handwriting\setup.ps1   # venv, PyTorch cu128, models, CUDA check
 workers\handwriting\run-worker.ps1 -Api http://localhost:3000            # or your deployed https URL
@@ -42,13 +54,17 @@ The style reference in tests is a synthetic page written in a computer font (Ink
 can only be judged with real, authorised samples.
 
 ## Limits
-- Charset: the 80 IAM characters (A–Z, a–z, 0–9, common punctuation). Others are refused with a list; curly quotes,
-  dashes and ellipses are normalised and reported.
+- Charset: DiffusionPen writes the 80 IAM characters (A–Z, a–z, 0–9, common punctuation). Every other character
+  (% @ £ © ° ™ { } accented letters, Greek, maths…) is drawn from a font (`hw/glyphs.py`: Caveat, OFL; DejaVu Sans as
+  fallback), sized by x-height and inked in the pen colour; the manifest lists them under `font_drawn`. Characters no
+  font has (e.g. CJK) are refused with a list. Curly quotes, dashes and ellipses are normalised; invisible characters
+  (soft hyphens, zero-width spaces) are dropped.
 - English only (IAM). Very long words are squeezed by the 256-px canvas and misspell more often.
 - 8 GB VRAM is ample (peak ~1 GB). Without CUDA it falls back to CPU (minutes per page).
 - Weights: DiffusionPen (MIT, trained on IAM — non-commercial research data), SD-1.5 VAE (CreativeML OpenRAIL-M),
   CANINE-c config (Apache-2.0), TrOCR-small (MIT per microsoft/unilm; HF card has no licence tag; IAM-trained).
   Model files are git-ignored; hashes are in `models/MANIFEST.json`.
+- Fonts in `fonts/`: Caveat (SIL OFL 1.1, `OFL-Caveat.txt`), DejaVu Sans (free licence, `LICENSE-DejaVu.txt`).
 
 ## Tests
 ```powershell

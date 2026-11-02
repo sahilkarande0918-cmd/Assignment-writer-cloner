@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from PIL import Image
 
+from .glyphs import glyph
 from .paper import Paper
 
 ASC = set("bdfhklt0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!?'\"()/&#")
@@ -113,19 +114,43 @@ def tint(word_img: Image.Image, pen: tuple[int, int, int], target_h: int) -> tup
     return Image.new("RGB", crop.size, pen), Image.fromarray((alpha * 255).astype(np.uint8))
 
 
-def compose(paper: Paper, images: dict[int, Image.Image], paragraphs: list[list[Token]], pen: tuple[int, int, int], xheight: float) -> tuple[list[Image.Image], list[Page]]:
-    """Render pages. `images` maps occurrence id -> generated word image. Returns page images + layout."""
+Piece = tuple[str, "Image.Image | None"]  # (text, generated image) or (char, None) = drawn from a font
+
+
+def piece(text: str, img: Image.Image | None, pen: tuple[int, int, int], xheight: float) -> tuple[Image.Image, Image.Image, int]:
+    """(rgb, alpha, depth below baseline). DiffusionPen stretches every word to the full canvas height, so true
+    size comes from the letters present (x-height, ascenders, descenders), not from the image. A per-page scale
+    clamp was tried and made ascender-free words like "a" too big, so each word is sized by its own letter shape."""
+    if img is None:
+        return glyph(text, pen, xheight)
+    units, desc = height_units(text)
+    rgb, alpha = tint(img, pen, max(1, round(xheight * units)))
+    return rgb, alpha, round(xheight * desc)
+
+
+def join(parts: list[tuple[Image.Image, Image.Image, int]], pen: tuple[int, int, int], gap: int) -> tuple[Image.Image, Image.Image, int]:
+    """Baseline-align pieces of one word ("50" generated + "%" from a font) into a single ink image."""
+    if len(parts) == 1:
+        return parts[0]
+    top = min(d - a.height for _, a, d in parts)  # highest point, relative to the baseline
+    bottom = max(d for _, _, d in parts)
+    alpha = Image.new("L", (sum(a.width for _, a, _ in parts) + gap * (len(parts) - 1), bottom - top), 0)
+    x = 0
+    for _, a, d in parts:
+        alpha.paste(a, (x, d - a.height - top))
+        x += a.width + gap
+    return Image.new("RGB", alpha.size, pen), alpha, bottom
+
+
+def compose(paper: Paper, images: dict[int, Image.Image | list[Piece]], paragraphs: list[list[Token]], pen: tuple[int, int, int], xheight: float) -> tuple[list[Image.Image], list[Page]]:
+    """Render pages. `images` maps occurrence id -> generated word image, or its pieces. Returns page images + layout."""
     space = xheight * 0.7
     words = {occ: w for para in paragraphs for occ, w in para}
-    # DiffusionPen stretches every word to the full canvas height, so true size comes from the letters present
-    # (x-height, ascenders, descenders), not from the image. A per-page scale clamp was tried and made
-    # ascender-free words like "a" too big, so each word is sized by its own letter shape.
+    gap = max(1, round(xheight * 0.06))
     sized = {}
     for occ, img in images.items():
-        units, desc = height_units(words[occ])
-        h = max(1, round(xheight * units))
-        rgb, alpha = tint(img, pen, h)
-        sized[occ] = (rgb, alpha, round(xheight * desc))
+        parts = img if isinstance(img, list) else [(words[occ], img)]
+        sized[occ] = join([piece(t, im, pen, xheight) for t, im in parts], pen, gap)
     pages = layout(paragraphs, {o: s[0].width for o, s in sized.items()}, paper, space)
     out = []
     for page in pages:

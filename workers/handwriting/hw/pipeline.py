@@ -7,12 +7,13 @@ import statistics
 import time
 import unicodedata
 from dataclasses import dataclass, field, replace
-from typing import Protocol
+from typing import Callable, Protocol
 
 from PIL import Image
 
 from .compose import check, compose, tokenize
-from .model import unsupported_chars
+from .glyphs import font_for, segments
+from .model import CHARSET, unsupported_chars
 from .paper import Paper, reconstruct, residual_ink, synthetic
 from .recognize import word_error
 from .style import extract_style
@@ -25,7 +26,10 @@ PAGE_MM = {"A4": (210, 297), "Letter": (215.9, 279.4)}
 class WordGenerator(Protocol):
     name: str
 
-    def generate(self, words: list[str], style_imgs: list[Image.Image], seeds: list[int]) -> list[Image.Image]: ...
+    def generate(self, words: list[str], style_imgs: list[Image.Image], seeds: list[int], progress: Callable[[int], None] | None = None) -> list[Image.Image]: ...
+
+
+Progress = Callable[[str, int, int], None]  # (stage, done, total)
 
 
 @dataclass
@@ -40,6 +44,8 @@ def normalise(text: str) -> tuple[str, list[str]]:
     changed = sorted({c for c in text if c in NORMALISE})
     for a, b in NORMALISE.items():
         text = text.replace(a, b)
+    # Invisible characters from PDFs/Word (soft hyphens, zero-width spaces, control codes) are dropped.
+    text = "".join(c for c in text if c in "\n\f\t" or unicodedata.category(c) not in ("Cc", "Cf"))
     return unicodedata.normalize("NFC", text), [f"{c!r} written as {NORMALISE[c]!r}" for c in changed]
 
 
@@ -52,19 +58,23 @@ def seed_for(base: int, occ: int, bump: int) -> int:
     return (base + occ * 7919 + bump * 104729) % (2**31)
 
 
-def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None, candidates: int = 3) -> Result:
+def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None, candidates: int = 3, progress: Progress | None = None) -> Result:
     """payload: text, pageSize, paper (ruled|grid|plain|reference|source), marginLeftMm, marginTopMm,
     lineSpacingMm, penColor ("#rrggbb" | "match"), sizePt, keepLineBreaks, seed, bumps {occ: n}.
     files: reference (required, PNG/JPEG page of the writer), paper (optional page whose sheet is reused).
-    reader: optional word recogniser; when given, the best of `candidates` samples per word is kept."""
+    reader: optional word recogniser; when given, the best of `candidates` samples per word is kept.
+    Characters outside the model's charset are drawn from a handwriting font (hw/glyphs.py)."""
     t0 = time.time()
+    report = progress or (lambda *_: None)
     text, notes = normalise(payload["text"])
-    bad = unsupported_chars(text)
+    drawn = unsupported_chars(text)
+    bad = {c for c in drawn if not font_for(c)}
     if bad:
-        raise ValueError(f"The handwriting model cannot write these characters: {' '.join(sorted(bad))}. Remove or replace them.")
+        raise ValueError(f"These characters cannot be written: {' '.join(sorted(bad))}. Remove or replace them.")
     if not text.strip():
         raise ValueError("There is no text to write.")
 
+    report("Reading the handwriting reference", 0, 1)
     reference = Image.open(io.BytesIO(files["reference"])).convert("RGB")
     crops, ink_rgb, boxes = extract_style(reference)
     pen = ink_rgb if payload.get("penColor", "match") == "match" else hex_rgb(payload["penColor"])
@@ -91,18 +101,23 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     base = int(payload.get("seed", 1234))
     bumps = {int(k): int(v) for k, v in payload.get("bumps", {}).items()}
     n = candidates if reader else 1
-    # Each occurrence gets n candidates from distinct seeds; "regenerate line" bumps move to a fresh set.
-    seeds = [seed_for(base, occ, bumps.get(occ, 0) * n + c) for occ, _ in tokens for c in range(n)]
-    imgs = gen.generate([w for _, w in tokens for _ in range(n)], crops, seeds)
-    images: dict[int, Image.Image] = {}
+    segs = {occ: segments(w, CHARSET) for occ, w in tokens}
+    # Model-writable runs of each word; the rest are font glyphs. Run k of an occurrence gets its own seed offset.
+    runs = [(occ, k, t) for occ, _ in tokens for k, (t, ok) in enumerate(segs[occ]) if ok]
+    # Each run gets n candidates from distinct seeds; "regenerate line" bumps move to a fresh set.
+    seeds = [(seed_for(base, occ, bumps.get(occ, 0) * n + c) + k * 15485863) % (2**31) for occ, k, _ in runs for c in range(n)]
+    total = len(seeds)
+    imgs = gen.generate([t for _, _, t in runs for _ in range(n)], crops, seeds, progress=lambda done: report("Writing words", done, total)) if runs else []
+    chosen: dict[tuple[int, int], Image.Image] = {}
     check_report = None
-    if reader:
+    if reader and runs:
+        report("Checking each word", 0, 1)
         reads = reader.read(imgs)
         errors = []
-        for i, (occ, w) in enumerate(tokens):
+        for i, (occ, k, w) in enumerate(runs):
             options = [(word_error(w, reads[i * n + c]), c) for c in range(n)]
             err, c = min(options)
-            images[occ] = imgs[i * n + c]
+            chosen[(occ, k)] = imgs[i * n + c]
             errors.append((err, w, reads[i * n + c]))
         check_report = {
             "model": reader.name,
@@ -113,8 +128,10 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
             "doubtful": [{"word": w, "read": r} for e, w, r in errors if e > 0.34][:50],
         }
     else:
-        images = {occ: im for (occ, _), im in zip(tokens, imgs)}
+        chosen = {(occ, k): im for (occ, k, _), im in zip(runs, imgs)}
+    images = {occ: [(t, chosen.get((occ, k))) for k, (t, _) in enumerate(segs[occ])] for occ, _ in tokens}
 
+    report("Laying out pages", 0, 1)
     pages, layout = compose(paper, images, paragraphs, pen, xheight)
     ink, _ = compose(replace(paper, image=Image.new("RGB", paper.image.size, "white")), images, paragraphs, pen, xheight)
     issues = check(layout, paper.image.size)
@@ -131,6 +148,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
         "pen": "#%02x%02x%02x" % pen,
         "style_crops": [list(b) for b in boxes],
         "normalised": notes,
+        "font_drawn": sorted(drawn),  # characters drawn from a font, not generated in the writer's style
         "issues": issues,
         "word_check": check_report,
         "pages": [

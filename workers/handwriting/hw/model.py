@@ -82,8 +82,9 @@ class Generator:
         self.scheduler = DDIMScheduler.from_pretrained(MODELS / "sd15", subfolder="scheduler")
 
     @torch.no_grad()
-    def generate(self, words: list[str], style_imgs: list[Image.Image], seeds: list[int], batch: int = 16) -> list[Image.Image]:
-        """One RGB 256x64 image per word, each from its own seed. `style_imgs` are ~5 word crops of the writer."""
+    def generate(self, words: list[str], style_imgs: list[Image.Image], seeds: list[int], progress=None, batch: int = int(os.environ.get("HW_BATCH", 16))) -> list[Image.Image]:
+        """One RGB 256x64 image per word, each from its own seed. `style_imgs` are ~5 word crops of the writer.
+        `progress(done)` is called after each batch."""
         if not style_imgs:
             raise ValueError("At least one reference word crop is required.")
         refs = [style_imgs[i % len(style_imgs)] for i in range(5)]
@@ -104,4 +105,6 @@ class Generator:
             img = self.vae.decode((x / 0.18215).to(self.vae.dtype)).sample
             img = ((img.float() / 2 + 0.5).clamp(0, 1) * 255).round().byte().permute(0, 2, 3, 1).cpu().numpy()
             out += [Image.fromarray(a) for a in img]
+            if progress:
+                progress(len(out))
         return out

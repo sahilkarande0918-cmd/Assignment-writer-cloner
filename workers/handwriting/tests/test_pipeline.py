@@ -40,12 +40,14 @@ class SimGenerator:
 
     name = "simulated-font-renderer"
 
-    def generate(self, words, style_imgs, seeds):
+    def generate(self, words, style_imgs, seeds, progress=None):
         out = []
         for w in words:
             im = Image.new("RGB", (256, 64), "white")
             ImageDraw.Draw(im).text((4, 8), w, font=font(min(40, int(240 / max(1, len(w)) * 1.6))), fill=(20, 20, 20))
             out.append(im)
+            if progress:
+                progress(len(out))
         return out
 
 
@@ -111,10 +113,35 @@ def test_pipeline_contract_provenance_and_no_reference_text():
     assert (ink > 250).mean() > 0.95 and len(r.ink) == len(r.pages)
 
 
-def test_unsupported_characters_fail_clearly_and_typography_is_normalised():
-    text, notes = normalise("“Quote” – done…")
+def test_typography_is_normalised_and_invisible_characters_dropped():
+    text, notes = normalise("“Quote” – done…­​")
     assert text == '"Quote" - done...' and notes
+
+
+def test_characters_outside_the_model_charset_are_drawn_from_a_font():
+    from hw.compose import ink_box
+    from hw.glyphs import segments
+    from hw.model import CHARSET
+
+    assert segments("50%", CHARSET) == [("50", True), ("%", False)]
+    assert segments("<a@b>", CHARSET) == [("<", False), ("a", True), ("@", False), ("b", True), (">", False)]
     buf = io.BytesIO()
     ruled_page().save(buf, "PNG")
-    with pytest.raises(ValueError, match="cannot write these characters: %"):
-        run({"text": "100% sure", "seed": 1, "bumps": {}}, {"reference": buf.getvalue()}, SimGenerator())
+    text = "Yield 100% at 25°C, cost £5 © {x} [α≤β] ™"
+    stages = []
+    r = run({"text": text, "seed": 1, "bumps": {}, "paper": "plain"}, {"reference": buf.getvalue()}, SimGenerator(),
+            progress=lambda s, d, t: stages.append(s))
+    m = r.manifest
+    assert " ".join(w["word"] for p in m["pages"] for w in p["words"]) == text  # nothing dropped
+    assert set("%°£©{}[]α≤β™") <= set(m["font_drawn"]) and m["issues"] == []
+    for w in m["pages"][0]["words"]:  # every word, including symbol-only ones, left ink on the page
+        x, y, ww, hh = w["box"]
+        assert ink_box(r.ink[0].crop((x, y, x + ww, y + hh))) is not None
+    assert stages[0] == "Reading the handwriting reference" and "Writing words" in stages and stages[-1] == "Laying out pages"
+
+
+def test_characters_no_font_has_fail_clearly():
+    buf = io.BytesIO()
+    ruled_page().save(buf, "PNG")
+    with pytest.raises(ValueError, match="cannot be written: 字"):  # no CJK in Caveat or DejaVu Sans
+        run({"text": "done 字", "seed": 1, "bumps": {}}, {"reference": buf.getvalue()}, SimGenerator())
