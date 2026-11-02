@@ -1,5 +1,7 @@
 # Project status
 
+> Full recovery snapshot: `docs/CONTEXT_SNAPSHOT.md` (state, versions, env names, ML results, schema, restart commands).
+
 | Phase | Scope | State | Pushed SHA |
 |---|---|---|---|
 | 1 | Foundation, design system, dashboard shell | ✅ complete | `1b18c16` (verified via ls-remote) |

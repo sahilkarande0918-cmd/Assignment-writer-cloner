@@ -1,5 +1,7 @@
 # Handoff
 
+> Full recovery snapshot: `docs/CONTEXT_SNAPSHOT.md` (state, versions, env names, ML results, schema, restart commands).
+
 ## Resume
 1. Read `master_prompt.md`, `CLAUDE.md`, `docs/PROJECT_STATUS.md`, this file, `docs/DECISIONS.md`.
 2. `git log -5 --oneline && git status`
