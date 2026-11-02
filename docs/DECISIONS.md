@@ -200,3 +200,16 @@ they fit). Word sizing: the letter-class rule now clamps outliers by the measure
 lowercase letters, 0.75–1.5x) — full re-measurement was tried and rejected (noisy, words grew into the next line).
 Measured on the owner's file (Uhv IA-1 page 1 in its own handwriting): 100/110 words read back exactly, no overlaps.
 Known limit: style crops taken from a table page are small and noisy, so style fidelity is weaker there.
+
+## ADR-034 Model comparison on the owner's handwriting (2026-11-02)
+Same 5 lines, same style (3 clean lines cut from the owner's Uhv IA-1 scan), one sample each, RTX 5050, read back
+with TrOCR-small (sheet: scratchpad model-comparison.png; script: compare_models.py).
+| Model | Time (5 lines) | CER | Exact lines | Notes |
+|---|---|---|---|---|
+| DiffusionPen (current) | 33.7 s | 31.2 % | 2/5 | uneven size, several garbled words |
+| Eruku (Apache-2.0) | 295 s | failed | 0/5 | copied the style image's ruled lines; 3 lines blank; no KV cache |
+| VATr++ (MIT code, IAM-trained weights) | 0.1 s | 1.8 % | 4/5 | legible, even, closest to the writer's round print |
+Both newer models need loading workarounds on transformers 5 (built from their own code; weights loaded directly).
+Decision pending owner approval: make VATr++ the default engine (per word, so tables/rewrites/layout stay), keep
+DiffusionPen as an option; remaining work: transparent word backgrounds (VATr++ patches are light grey) and
+resolution (32 px tall).

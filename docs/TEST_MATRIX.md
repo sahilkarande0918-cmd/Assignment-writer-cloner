@@ -18,6 +18,17 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — owner bug: wrong content, unreadable, no table (executed 2026-11-02)
+| Check | Result |
+|---|---|
+| Root cause | Handwriting Clone (source mode): content = first card; owner's content PDF was in the handwriting card. Content of the other PDF came from local Tesseract on a handwritten table → debris ("| | ] ;") written out |
+| Groq vision on Uhv IA-1 (4 pages) | readable rows; with the column-header hint every page keeps "cell \| cell" rows; a new table on page 3 detected; errors remain on a cut-off name and one PRN digit |
+| Unit | 56 passed (incl. table normalisation, header hint, garble score) |
+| Worker | 11 passed (incl. ruled table layout with wrapped cells) |
+| Render: Uhv page 1 content in Uhv's handwriting (RTX 5050) | ruled 4-column table, 100/110 words read back exactly, no overlaps; word sizes evened out |
+| Precision gap found by owner | "Reaction" drawn with "ti" like "h" ("Reachon"); TrOCR-small read it as "Reaction" (language prior) — checker too lenient |
+| E2E (desktop) | 12 passed; 2 failed only from this PC's intermittent DNS to Neon ("fetch failed") |
+
 ## Results — speed (executed 2026-11-02)
 | Check | Result |
 |---|---|
