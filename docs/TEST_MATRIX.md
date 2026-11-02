@@ -18,6 +18,15 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — precision pass (executed 2026-11-02)
+| Check | Result |
+|---|---|
+| Worker pytest | 10 passed — incl. rewrite pass (misread words rewritten until exact) and digits always font-drawn |
+| A/B on RTX 5050, 69-word lab report, same seed | without rewrite: 38/69 exact, CER 24.5 %, 36 s · with rewrite: 50/69 exact, CER 12.2 %, 89 s (TrOCR-small judges and selects: upper bound) |
+| Visual review | every number, decimal and date correct ("0.04, 0.09…", "46.8", "14/10/2026", "B2"); some long words still misspelt by the model |
+| Live on Kaggle T4 (warm) | passed in 37 s (GPU 30.5 s): "£5", "25°C" now correct; "Kaggle", "error", "length" still imperfect |
+| Live on Kaggle (cold) | job succeeded; the test's 10 s polling missed the short writing stage — assertion relaxed to any reported stage |
+
 ## Results — free Kaggle GPU (executed 2026-11-02, production queue)
 | Check | Result |
 |---|---|

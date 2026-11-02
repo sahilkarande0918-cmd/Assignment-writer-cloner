@@ -33,7 +33,7 @@ describe.skipIf(!enabled)("Kaggle cloud GPU", () => {
       }
       expect(j?.error ?? null).toBeNull();
       expect(j?.status).toBe("succeeded");
-      expect([...seen].some((l) => l.includes("Writing words"))).toBe(true); // real progress was reported
+      expect([...seen].some((l) => /^running .+ [0-9.]+$/.test(l))).toBe(true); // a real stage + percentage was reported
       const m = j!.manifest as { font_drawn: string[]; word_check: { candidates: number } | null; seconds: number };
       expect(m.font_drawn).toEqual(expect.arrayContaining(["%", "°", "£", "©", "{", "}", "[", "]"]));
       expect(m.word_check?.candidates).toBe(3); // full quality: best of 3 with the word check
