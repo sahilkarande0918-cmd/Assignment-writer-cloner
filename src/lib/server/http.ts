@@ -11,7 +11,7 @@ export function ownerRoute<C>(fn: (req: Request, ctx: C) => Promise<Response>, m
     const denied = await requireOwner(req);
     if (denied) return denied;
     if (req.method !== "GET") {
-      const blocked = guard(req, maxBytes);
+      const blocked = guard(req, maxBytes, { bucket: "app", limit: 600 }); // autosave + uploads; AI routes keep 20/min
       if (blocked) return blocked;
     }
     if (!cloudConfigured()) return Response.json({ error: "Cloud storage is not configured (DATABASE_URL, AWS_* and STORAGE_BUCKET).", cloud: false }, { status: 503 });

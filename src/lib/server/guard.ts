@@ -10,13 +10,14 @@ export function rateLimited(key: string, limit = 20, windowMs = 60_000, now = Da
   return recent.length > limit;
 }
 
-export function guard(req: Request, maxBytes: number): Response | null {
+/** `bucket` keeps separate budgets per kind of traffic (AI calls, sign-in, normal app use). */
+export function guard(req: Request, maxBytes: number, { bucket = "ai", limit = 20 }: { bucket?: string; limit?: number } = {}): Response | null {
   const origin = req.headers.get("origin");
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
   if (!origin || !host || new URL(origin).host !== host) return Response.json({ error: "Cross-site requests are not allowed." }, { status: 403 });
   const size = Number(req.headers.get("content-length") ?? 0);
   if (size > maxBytes) return Response.json({ error: "Request is too large." }, { status: 413 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
-  if (rateLimited(ip)) return Response.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
+  if (rateLimited(`${bucket}:${ip}`, limit)) return Response.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
   return null;
 }

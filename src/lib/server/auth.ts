@@ -42,7 +42,7 @@ export const authEnabled = () => !!process.env.OWNER_PASSWORD_HASH;
 
 /** Without a configured password the app only serves localhost, never a public host. */
 export function localOnly(req: Request) {
-  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(":")[0];
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host).replace(/:\d+$/, "");
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }
 

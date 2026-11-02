@@ -17,6 +17,8 @@ test.describe("owner sign-in", () => {
     await expect(page.getByText("Wrong password.")).toBeVisible();
     expect((await request.get("/api/projects")).status()).toBe(401);
     expect((await request.get("/api/worker/status")).status()).toBe(401);
+    expect((await request.get("/api/groq/status")).status()).toBe(401);
+    expect((await request.post("/api/plan", { headers: { origin: "http://localhost:3100" }, data: {} })).status()).toBe(401);
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible(); // landing stays public
   });

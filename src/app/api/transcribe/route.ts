@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { safeError, transcribeImage } from "@/lib/server/groq";
 import { guard } from "@/lib/server/guard";
+import { requireOwner } from "@/lib/server/auth";
 
 // Vercel caps request bodies at ~4.5 MB; the client downsizes crops to fit.
 const Body = z.object({
@@ -9,6 +10,8 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  const denied = await requireOwner(req);
+  if (denied) return denied;
   const blocked = guard(req, 4_200_000);
   if (blocked) return blocked;
   const body = Body.safeParse(await req.json().catch(() => null));

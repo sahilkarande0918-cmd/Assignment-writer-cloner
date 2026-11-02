@@ -6,13 +6,13 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
  Browser (Next.js client)                          Vercel (Next.js server)                 Owner's PC (optional)
  ┌──────────────────────────────┐   HTTPS          ┌───────────────────────────┐  HTTPS   ┌─────────────────────────┐
  │ Landing / Studio / Library ✅ │ ───────────────▶ │ /api/plan  (Groq) ✅       │ ◀─────── │ workers/handwriting ✅  │
- │ Upload validation ✅          │                  │ /api/projects, files ⏳5   │  poll    │  claim job → download    │
+ │ Upload validation ✅          │                  │ /api/projects, files ✅    │  poll    │  claim job → download    │
  │ PDF.js render/extract ✅     │                  │ /api/worker/* (token) ✅   │  only    │  generate/reconstruct    │
  │ DOCX XML edit (JSZip) ✅     │                  └─────────┬─────────────────┘          │  upload artifacts        │
  │ MuPDF.js edit/export ✅      │                            │                            └─────────────────────────┘
  │ Tesseract OCR (wasm) ✅      │                   ┌────────▼────────┐  ┌──────────────────────┐
- │ IndexedDB local library ⏳5   │                   │ Neon Postgres ⏳5│  │ S3-compatible private │
- └──────────────────────────────┘                   │ (Drizzle)        │  │ object storage ⏳5    │
+ │ Library + autosave ✅      │                   │ Neon Postgres ✅ │  │ S3-compatible private │
+ └──────────────────────────────┘                   │ (Drizzle)        │  │ object storage ✅     │
                                                      └─────────────────┘  └──────────────────────┘
 ```
 
@@ -31,10 +31,10 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 - `src/app/api` — `plan`, `transcribe`, `groq/status`.
 - `tests/unit` (Vitest), `tests/e2e` (Playwright desktop + mobile, axe).
 
-## Data model (target, phase 5)
+## Data model (phase 5, live)
 `owner` (single-user config) · `projects` · `source_files` · `reference_styles` · `document_versions` (immutable snapshots, version id for optimistic locking) · `operations` (validated plan ops + status) · `render_jobs` (queued/running/succeeded/failed/cancelled, lease, heartbeat, attempts, idempotency key) · `output_artifacts` (checksum, mime, storage key).
 
-## Job protocol (phase 4: in-memory store; phase 5: Neon)
+## Job protocol (Neon since phase 5)
 `POST /api/worker/claim` (Bearer WORKER_TOKEN) → leases one queued job for N seconds → worker heartbeats → uploads artifacts with sha256 → `complete`/`fail`. Expired leases return to the queue until the retry budget is spent. Worker offline ⇒ job stays `queued` and the UI says so.
 
 ## Handwriting worker (phase 4)
@@ -43,3 +43,13 @@ synthetic sheet), `hw/model.py` (DiffusionPen), `hw/recognize.py` (TrOCR word ch
 composition + overlap/clip check), `hw/pipeline.py` (job → pages + manifest), `worker.py` (polling client).
 Studio: `GenerationPanel` queues `/api/jobs` (multipart: payload JSON + reference/paper JPEG ≤ 1.8 MB each), polls status,
 shows composite / paper-only / ink-only previews, line regeneration, OCR back-check, PDF/PNG download.
+
+## Persistence and auth (phase 5)
+- `src/lib/server/db` (Drizzle schema + client), `storage.ts` (signed URLs, prefix delete, copy), `projects.ts`
+  (repository + optimistic locking), `jobs.ts` (queue), `auth.ts` + `password.ts` (owner session), `http.ts`
+  (`ownerRoute` / `workerRoute` wrappers: auth, same-origin, size + rate limits, safe errors).
+- Routes: `/api/projects` (+ `[id]`, `duplicate`, `files`, `files/[fileId]/confirm`, `versions`), `/api/auth/login|logout`,
+  jobs and worker routes. Pages `/studio` and `/library` are gated by `src/proxy.ts`; `/login` is public.
+- Upload flow: browser → `POST files` (signed PUT) → PUT to bucket → `POST confirm` (size + signature) → row ready.
+- Studio: `use-cloud.ts` (lazy create, serialized autosave queue, upload, version save, load) restores everything on
+  `/studio?project=<id>`.

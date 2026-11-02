@@ -4,7 +4,7 @@ import { guard, rateLimited } from "@/lib/server/guard";
 import { verifyPassword } from "@/lib/server/password";
 
 export async function POST(req: Request) {
-  const blocked = guard(req, 2_000);
+  const blocked = guard(req, 2_000, { bucket: "auth", limit: 30 });
   if (blocked) return blocked;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
   if (rateLimited(`login:${ip}`, 5, 60_000)) return Response.json({ error: "Too many attempts. Wait a minute." }, { status: 429 });

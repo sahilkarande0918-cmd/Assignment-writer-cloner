@@ -6,7 +6,7 @@
 | 2 | Secure imports, structural analysis, Groq planning | ✅ complete | `33b9218` (verified via ls-remote) |
 | 3 | Digital editing + deterministic export | ✅ complete | `cdb70dd` (verified via ls-remote) |
 | 4 | Handwriting worker, paper reconstruction, new assignments | ✅ complete | `6f412e4` (verified via ls-remote) |
-| 5 | Persistence, jobs, polish, deployment | 🟡 in progress (WIP checkpoint pushed) | — |
+| 5 | Persistence, jobs, polish, deployment | ✅ complete (deployment pending owner approval) | see HANDOFF |
 
 ## Owner-added requirement (2026-11-01)
 **Convert Handwriting** mode — keep assignment 1's content, write it in assignment 2's handwriting (ADR-009). Phase 1: mode + inputs. Phase 2: OCR transcript, Groq-vision transcript improvement (with consent), mandatory "I have checked this transcript". Phase 4: generation + OCR back-check.
@@ -43,9 +43,21 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 ## Blockers
 - ~~Neon credentials~~ resolved 2026-11-02: Neon Postgres + private Object Storage bucket configured and verified (ADR-022).
 
-## Phase 5 — progress (2026-11-02, WIP)
-Done + tested: Drizzle schema (8 tables + workers) migrated on Neon `dev` and `production`; private object storage helpers (signed PUT/GET, verified uploads); owner sign-in (scrypt hash + HMAC cookie, proxy gate, route guards); projects API (list/search/filter, create, PATCH with optimistic locking, duplicate, delete, uploads, versions); job queue moved to Neon (SKIP LOCKED claim, leases, checksummed artifacts in storage); library UI; studio autosave/reopen/version save. Tests: integration 5/5 on dev branch (`npm run test:int`), persistence E2E passed on dev branch.
-Remaining: full regression run (unit + all E2E) after these changes, live worker run against Neon store, security headers/CSP + a11y/perf audit, docs (ADRs for auth/persistence, TEST_MATRIX), Vercel deployment (ask owner first), final `feat(phase-5)` commit.
+## Phase 5 — done
+- **Neon persistence** (ADR-024): Drizzle schema + migrations (dev branch first, then production), private bucket with direct signed uploads verified by size + magic bytes, signed downloads, optimistic locking, immutable versions with redo-branch cleanup, duplicate (rows + objects), permanent delete, 50-project / 25 MB limits, nothing auto-expires.
+- **Owner sign-in** (ADR-023): scrypt hash + HMAC session cookie, proxy gate + per-route checks, localhost-only without a password, login rate limit, sign-out.
+- **Library**: search, mode filter, open, rename, duplicate, delete (confirm), download latest version, quota, status badges.
+- **Studio**: lazy project creation, autosave (debounced, serialized), uploads to storage as files are added, every applied edit saved as a version, full restore on `/studio?project=<id>` (inputs, versions, cursor, settings, transcript, last generated pages), save-state badge incl. "Changed elsewhere".
+- **Jobs on Neon** (ADR-025): SKIP LOCKED claims, SQL lease reaping, retry budget, artifacts in storage, signed artifact URLs, worker liveness; live GPU run passed on the new queue.
+- **Hardening** (ADR-026): all API routes owner-only (Groq included) or worker-token, separate rate-limit budgets, CSP + security headers, noindex.
+- **Audit**: axe (0 serious/critical) on `/`, `/studio`, `/library`, `/login` desktop + mobile; no horizontal overflow; reduced-motion; performance budget test (landing 585 KB JS incl. idle 3D, studio 347 KB, LCP < 0.6 s locally); worker-offline path; keyboard undo/redo.
+
+## Known limits (honest)
+- DOCX → PDF/PNG needs LibreOffice in the worker (not built; disabled with a reason).
+- Native PDF edits: Latin text, unrotated pages, single-line changes (no paragraph reflow).
+- Handwriting: style approximation only; IAM charset/English; similarity to a real writer not yet measured on authorised samples.
+- One local GPU worker; generation waits in the queue while it is off.
+- `'unsafe-inline'` scripts in CSP (Next bootstrap without nonces).
 
 ## Next action
-Phase 5: Neon Postgres + object storage (needs owner credentials) or IndexedDB fallback for ≥10 projects; move job store to Neon; single-owner auth; autosave/library; security/perf/a11y audit; Vercel deployment after verifying account.
+Deploy to Vercel after the owner confirms the account/project; set env vars there (no secrets in git); record the verified URL.

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const ROUTES = ["/", "/studio", "/library"];
+const ROUTES = ["/", "/studio", "/library", "/login"];
 
 function trackConsole(page: Page) {
   const errors: string[] = [];

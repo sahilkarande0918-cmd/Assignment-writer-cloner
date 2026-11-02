@@ -1,8 +1,11 @@
 import { PlanRequestSchema, resolvePlan } from "@/lib/plan";
 import { requestPlan, safeError } from "@/lib/server/groq";
 import { guard } from "@/lib/server/guard";
+import { requireOwner } from "@/lib/server/auth";
 
 export async function POST(req: Request) {
+  const denied = await requireOwner(req);
+  if (denied) return denied;
   const blocked = guard(req, 1_000_000);
   if (blocked) return blocked;
   const body = PlanRequestSchema.safeParse(await req.json().catch(() => null));

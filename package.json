@@ -14,7 +14,8 @@
     "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/live --silent=false --disableConsoleIntercept",
     "test:int": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run tests/integration",
     "db:migrate:dev": "node --env-file=.env.test.local node_modules/drizzle-kit/bin.cjs migrate",
-    "db:migrate:prod": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate"
+    "db:migrate:prod": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate",
+    "db:clean-dev": "node --env-file=.env.test.local scripts/clean-dev.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",

@@ -18,6 +18,19 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — phase 5 (executed 2026-11-02; E2E + integration on Neon `dev` branch)
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 52 passed, 15 skipped (live Groq + integration need env) |
+| Integration (real Neon dev branch: Postgres + bucket) | `npm run test:int` | 5/5 — 10 complete projects persisted + listed/searched, signed upload verification (impostor deleted, 99 MB refused), versions + redo truncation + optimistic-lock conflict, duplicate/delete incl. objects, job queue (concurrent claims exclusive, input ownership, checksum mismatch, lease expiry → failed after 3 attempts, cancel, worker liveness) |
+| Lint / build | `npm run lint`, `npm run build` | pass |
+| E2E desktop + mobile, signed in, CSP on, live Groq | `GROQ_LIVE=1 npm run test:e2e` | 28 passed, 16 skipped (mobile duplicates, opt-in live generation/screens) |
+| Persistence E2E | (part of the above) | autosave → reload restores file, version, settings, transcript-ready state; library search/rename/duplicate/delete |
+| Sign-in E2E | (part of the above) | redirect to /login, wrong password refused, `/api/projects`, `/api/worker/status`, `/api/groq/status`, `/api/plan` → 401 without session |
+| Live generation on the Neon queue | worker polling + `GENERATE_LIVE=1 npx playwright test generation` | 2/2 passed |
+| Shell a11y + perf | `npx playwright test perf shell` | 11 passed: axe 0 serious/critical on 4 routes; `/` JS 585 KB / LCP 244 ms, `/studio` JS 347 KB / LCP 584 ms |
+| Worker (simulated) | `pytest tests/test_pipeline.py` | 6 passed |
+
 ## Results — phase 4 (executed 2026-11-02, RTX 5050 Laptop 8 GB, torch 2.11.0+cu128, Chromium 156)
 | Suite | Command | Result |
 |---|---|---|
