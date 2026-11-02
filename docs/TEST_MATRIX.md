@@ -18,6 +18,17 @@ Limits: 25 MB per file, 60 pages per PDF, plan request ≤ 1 MB, vision image �
 - `lab-report.docx` — header, footer, heading, bold run, 3×3 table.
 - `ruled-page.png` — notebook page (blue rules, red margin) with handwriting-style text.
 
+## Results — speed (executed 2026-11-02)
+| Check | Result |
+|---|---|
+| Profile (96 words, RTX 5050) | DDIM50 fp32 14.5 s; TrOCR read 1.6 s |
+| DPM-Solver++ 20 vs DDIM 50 | 6.5 s vs 14.5 s; pixel diff 1.7/255; read-back 39 vs 37 exact; identical by eye |
+| fp16 UNet | 0.8/255 diff, read-back 40/96 |
+| TrOCR fp16 | rejected: 9/400 readings changed |
+| 69-word report, full pipeline | 89 s → 44.5 s; 53/69 exact (was 50), CER 10.3 % (was 12.2 %) |
+| Kaggle 2×T4, 1,420 words, 5 pages | 8.5 min total incl. start-up; writing 4,110 samples ≈ 2 min; 1,103/1,370 exact (858 first pass), CER 7.1 % |
+| Kaggle rerun with TrOCR on both GPUs | reached the rewrite stage without errors (word check ≈89 s vs 98 s); test aborted by a local DNS outage |
+
 ## Results — precision pass (executed 2026-11-02)
 | Check | Result |
 |---|---|

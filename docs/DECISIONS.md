@@ -169,3 +169,19 @@ exactly (CER 24.5 %); digits were often wrong ("47"→"(-7", "46.8"→"H6 B") an
    and the checker passed a doubtful "0.17". Letters stay generated in the writer's style.
 Remaining limit: long or rare words can still be misspelt by the model; the studio lists them (Doubtful) and
 "regenerate line" retries them.
+
+## ADR-032 Speed without quality loss (2026-11-02, owner request)
+Measured where a job's time goes: generation ~90 %, word check ~10 % (more with the rewrite pass). Changes, each
+checked with the same seeds before adopting:
+- DPM-Solver++ (multistep) 20 steps instead of DDIM 50: 2.2x faster, mean pixel difference 1.7/255, read-back
+  39 vs 37 of 96 exact, side-by-side identical by eye.
+- fp16 autocast for the UNet: 0.8/255 difference, no accuracy change (big gain on T4s, small on RTX 50).
+- Batch 32 (+12 %), and one model replica per GPU (Kaggle's "NvidiaTeslaT4" machine has two T4s).
+- TrOCR stays fp32 (fp16 changed 9/400 readings) but is split across GPUs (identical readings; small gain — CPU-side
+  preprocessing dominates).
+Result: 69-word lab report 89 s → 44.5 s locally (53/69 exact vs 50); 1,420-word, 5-page assignment on Kaggle in
+8.5 min total (≈45–60 min estimated before), 1,103/1,370 handwritten words exact, CER 7.1 %.
+Rejected for quality reasons: fewer samples per word, reusing samples for repeated words, Gemini-style image models
+(cannot clone a writer's style; Gemini is excluded by the project rules; Groq has no image model).
+Candidates to evaluate later on real handwriting (released weights): Eruku (Apache-2.0, line-level, built for text
+fidelity), VATr++ (MIT, GAN, single pass — very fast), DiffBrush (ICCV 2025, line-level), One-DM (ECCV 2024).
