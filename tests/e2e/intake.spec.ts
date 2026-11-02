@@ -51,7 +51,7 @@ test.describe("document intake", () => {
     const transcript = page.getByLabel("Transcript", { exact: true });
     await expect(transcript).toBeVisible({ timeout: 120_000 });
     await expect(transcript).toHaveValue(/Experiment/i);
-    await expect(page.getByLabel("I have checked this transcript")).not.toBeChecked();
+    await expect(page.getByLabel("I have checked this text")).not.toBeChecked();
   });
 
   test("encrypted-looking or corrupt PDF is rejected with a useful message", async ({ page }) => {

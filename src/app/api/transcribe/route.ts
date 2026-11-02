@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/server/auth";
 const Body = z.object({
   consent: z.literal(true),
   image: z.string().max(4_000_000).regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/),
+  tableHeader: z.string().max(500).optional(),
 });
 
 export async function POST(req: Request) {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   const body = Body.safeParse(await req.json().catch(() => null));
   if (!body.success) return Response.json({ error: "Send one JPEG/PNG/WEBP image with explicit consent." }, { status: 400 });
   try {
-    return Response.json({ text: await transcribeImage(body.data.image) });
+    return Response.json({ text: await transcribeImage(body.data.image, body.data.tableHeader) });
   } catch (e) {
     const { status, message } = safeError(e);
     return Response.json({ error: message }, { status });

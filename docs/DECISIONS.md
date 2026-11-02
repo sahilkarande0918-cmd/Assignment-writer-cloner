@@ -185,3 +185,18 @@ Rejected for quality reasons: fewer samples per word, reusing samples for repeat
 (cannot clone a writer's style; Gemini is excluded by the project rules; Groq has no image model).
 Candidates to evaluate later on real handwriting (released weights): Eruku (Apache-2.0, line-level, built for text
 fidelity), VATr++ (MIT, GAN, single pass — very fast), DiffBrush (ICCV 2025, line-level), One-DM (ECCV 2024).
+
+## ADR-033 Content from scans: AI reading, garble guard, clear roles, handwritten tables (2026-11-02, owner bug report)
+Report: two PDFs in Handwriting Clone produced unreadable pages of the *other* PDF's content with no table. Causes:
+(1) the first card ("Source to edit") is the content and the second the handwriting — easy to swap by mistake;
+(2) the content of a handwritten table scan came from local Tesseract OCR, which produced debris ("| | ] ;"), and
+nothing stopped it from being generated; (3) tables were written as run-on lines.
+Fixes: cards renamed "Content — text to write" / "Handwriting — style only", a Swap button, and a line above
+Generate ("Writes the text of A in the handwriting of B"); scans are read with Groq vision by default once the user
+consents (remembered per device), with a prompt that keeps tables as "cell | cell" rows, drops scanner watermarks and
+form labels, does not complete cut-off words, and hints the column header to continuation pages; a garble score warns
+before confirming nonsense; the worker lays tables out as ruled grids with wrapped cells (rows kept on one page when
+they fit). Word sizing: the letter-class rule now clamps outliers by the measured lowercase body (words with 4+
+lowercase letters, 0.75–1.5x) — full re-measurement was tried and rejected (noisy, words grew into the next line).
+Measured on the owner's file (Uhv IA-1 page 1 in its own handwriting): 100/110 words read back exactly, no overlaps.
+Known limit: style crops taken from a table page are small and noisy, so style fidelity is weaker there.

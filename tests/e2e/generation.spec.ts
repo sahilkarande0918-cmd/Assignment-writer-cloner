@@ -60,7 +60,7 @@ test.describe("handwriting generation (live worker)", () => {
     await transcript.fill("Experiment No. 3: Verification of Ohm's Law\nName: Aditya Kulkarni");
     const generate = page.getByRole("button", { name: "Generate pages" });
     await expect(generate).toBeDisabled(); // transcript not confirmed yet
-    await page.getByLabel("I have checked this transcript").check();
+    await page.getByLabel("I have checked this text").check();
     await generate.click();
     const panel = page.getByRole("region", { name: "Generate handwriting" });
     await expect(panel.getByText("Generated", { exact: true })).toBeVisible({ timeout: 240_000 });

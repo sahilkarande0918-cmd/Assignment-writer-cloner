@@ -40,11 +40,11 @@ test("reduced motion skips the WebGL hero", async ({ browser }) => {
 test("Text → Assignment toggle swaps between new document and source edit", async ({ page }) => {
   await page.goto("/studio");
   await page.getByRole("button", { name: "Handwriting Clone" }).click();
-  await expect(page.getByRole("heading", { name: "Reference handwriting" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source to edit" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Handwriting — style only" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Content — text to write" })).toHaveCount(0);
   await expect(page.getByLabel("Assignment content")).toBeVisible();
   await page.getByRole("switch", { name: "Text → Assignment" }).click();
-  await expect(page.getByRole("heading", { name: "Source to edit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Content — text to write" })).toBeVisible();
   await expect(page.getByLabel("Assignment content")).toHaveCount(0);
 });
 
@@ -72,9 +72,9 @@ test("planning stays disabled and explains why", async ({ page }) => {
 test("Convert Handwriting asks for both assignments and explains the pipeline", async ({ page }) => {
   await page.goto("/studio");
   await page.getByRole("button", { name: "Convert Handwriting" }).click();
-  await expect(page.getByRole("heading", { name: "Assignment 1 — content" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Assignment 2 — handwriting" })).toBeVisible();
-  await expect(page.getByText("Add: Assignment 1 — content, Assignment 2 — handwriting.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Content — assignment 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Handwriting — assignment 2" })).toBeVisible();
+  await expect(page.getByText("Add: Content — assignment 1, Handwriting — assignment 2.")).toBeVisible();
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
   const inputs = page.locator('input[type="file"]');
   await inputs.nth(0).setInputFiles({ name: "a1.png", mimeType: "image/png", buffer: png });

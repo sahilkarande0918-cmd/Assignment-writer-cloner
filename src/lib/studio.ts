@@ -13,7 +13,7 @@ export const MODES: { id: Mode; label: string; blurb: string }[] = [
 export type SlotSpec = { slot: Slot; title: string; hint: string; required: boolean; accept: InputKind[] };
 
 const ALL: InputKind[] = ["pdf", "docx", "png", "jpeg", "webp", "txt", "md"];
-const VISUAL: InputKind[] = ["pdf", "png", "jpeg", "webp"];
+export const VISUAL: InputKind[] = ["pdf", "png", "jpeg", "webp"];
 
 /** Which upload cards a mode shows. `textToAssignment` only matters in clone mode. */
 export function slotsFor(mode: Mode, textToAssignment: boolean): SlotSpec[] {
@@ -28,16 +28,16 @@ export function slotsFor(mode: Mode, textToAssignment: boolean): SlotSpec[] {
   }
   if (mode === "convert") {
     return [
-      { slot: "source", title: "Assignment 1 — content", hint: "Its text is kept; its handwriting is replaced", required: true, accept: ALL },
-      { slot: "reference", title: "Assignment 2 — handwriting", hint: "Only its writing style is used, never its text", required: true, accept: VISUAL },
+      { slot: "source", title: "Content — assignment 1", hint: "Its TEXT is written out; its handwriting is not used", required: true, accept: ALL },
+      { slot: "reference", title: "Handwriting — assignment 2", hint: "Only its WRITING STYLE is used, never its text", required: true, accept: VISUAL },
     ];
   }
   const clone: SlotSpec[] = [
-    { slot: "reference", title: "Reference handwriting", hint: "Your authorised handwriting pages (PDF or image)", required: true, accept: VISUAL },
+    { slot: "reference", title: "Handwriting — style only", hint: "Your authorised handwriting pages; only the WRITING STYLE is used, never their text", required: true, accept: VISUAL },
     { slot: "paper", title: "Paper page", hint: "Optional — blank or used sheet; only the paper is reused", required: false, accept: VISUAL },
   ];
   if (!textToAssignment) {
-    clone.unshift({ slot: "source", title: "Source to edit", hint: "Existing assignment to rewrite in this style", required: true, accept: ALL });
+    clone.unshift({ slot: "source", title: "Content — text to write", hint: "Its TEXT is written out in the handwriting below", required: true, accept: ALL });
   }
   return clone;
 }

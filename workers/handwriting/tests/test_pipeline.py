@@ -188,3 +188,28 @@ def test_digits_are_always_drawn_from_the_font():
     assert segments("B2.", CHARSET) == [("B", True), ("2", False), (".", False)]
     assert segments("No.", CHARSET) == [("No.", True)]
 
+
+
+def test_tables_are_written_as_ruled_tables_with_wrapped_cells():
+    from hw.compose import Row, tokens_of
+
+    text = ("IA Activity 1\nSr.No. | Interaction and Observation | Reaction or Response | Why?\n"
+            "1. | A housewife speaks rudely to her maid and treats her disrespectfully | Reaction | "
+            "She behaves according to her irritation instead of communicating respectfully.\n"
+            "2. | The maid gets upset and decides to leave the job. | Reaction | She responds emotionally.\nDone.")
+    paras = tokenize(text, keep_breaks=True)
+    rows = [p for p in paras if isinstance(p, Row)]
+    assert len(rows) == 3 and {r.table for r in rows} == {0} and [len(r.cells) for r in rows] == [4, 4, 4]
+    buf = io.BytesIO()
+    ruled_page().save(buf, "PNG")
+    r = run({"text": text, "seed": 1, "bumps": {}, "paper": "ruled"}, {"reference": buf.getvalue()}, SimGenerator())
+    m = r.manifest
+    assert m["issues"] == []  # nothing clipped or overlapping
+    placed = [w["word"] for p in m["pages"] for w in p["words"]]
+    assert sorted(placed) == sorted(w for _, w in tokens_of(paras))  # every word written once
+    # the long "Interaction" cell wraps onto several lines, so the row spans more baselines than the short ones
+    lines = m["pages"][0]["lines"]
+    assert len([l for l in lines if "rudely" in l["text"] or "disrespectfully" in l["text"]]) >= 2
+    # words of column 2 start right of column 1's rule: x of "Reaction" > x of "1."
+    boxes = {w["word"]: w["box"] for w in m["pages"][0]["words"]}
+    assert boxes["Reaction"][0] > boxes["housewife"][0] > boxes["1."][0]

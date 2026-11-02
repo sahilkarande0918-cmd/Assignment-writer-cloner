@@ -38,7 +38,7 @@ describe("convert mode", () => {
       ["reference", true],
     ]);
     expect(slots.find((s) => s.slot === "reference")?.accept).not.toContain("docx");
-    expect(missingInputs("convert", true, { source: 1 }, "")).toEqual(["Assignment 2 — handwriting"]);
+    expect(missingInputs("convert", true, { source: 1 }, "")).toEqual(["Handwriting — assignment 2"]);
     expect(missingInputs("convert", true, { source: 1, reference: 1 }, "")).toEqual([]);
   });
 });

@@ -72,6 +72,7 @@ export function GenerationPanel({
   paper,
   layout,
   projectId,
+  contentFrom,
   onPages,
 }: {
   text: string;
@@ -80,6 +81,7 @@ export function GenerationPanel({
   paper?: { upload: Upload; page: number };
   layout: LayoutSettings;
   projectId: string | null;
+  contentFrom: string; // where the text comes from, for the summary line
   onPages: (v: GeneratedSet) => void;
 }) {
   const [worker, setWorker] = useState<Worker>();
@@ -207,6 +209,12 @@ export function GenerationPanel({
         Runs the DiffusionPen handwriting model on {worker?.cloud ? "a cloud GPU that starts when you press Generate" : "a GPU worker"}. Results approximate the reference writer&apos;s style; they are marked as generated and are never identical to real handwriting.
         {worker && !worker.cloud && !worker.online && " Jobs wait in the queue until a worker is running."}
       </p>
+
+      {reference && (
+        <p className="mt-2 rounded-lg bg-ivory px-3 py-2 text-sm text-ink">
+          Writes <strong className="font-medium">{contentFrom}</strong> in the handwriting of <strong className="font-medium">{reference.file.name}</strong>.
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-xs text-ink-2">

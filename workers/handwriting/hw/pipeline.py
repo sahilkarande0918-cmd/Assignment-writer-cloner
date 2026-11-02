@@ -11,7 +11,7 @@ from typing import Callable, Protocol
 
 from PIL import Image
 
-from .compose import check, compose, tokenize
+from .compose import check, compose, tokenize, tokens_of
 from .glyphs import font_for, segments
 from .model import CHARSET, unsupported_chars
 from .paper import Paper, reconstruct, residual_ink, synthetic
@@ -97,7 +97,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     xheight = min(xheight, spacing * 0.40)  # ascender + descender must stay inside one rule gap
 
     paragraphs = tokenize(text, payload.get("keepLineBreaks", True))
-    tokens = [t for p in paragraphs for t in p if t[0] >= 0]
+    tokens = tokens_of(paragraphs)
     base = int(payload.get("seed", 1234))
     bumps = {int(k): int(v) for k, v in payload.get("bumps", {}).items()}
     n = candidates if reader else 1

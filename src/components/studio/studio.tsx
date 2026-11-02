@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Columns2, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, ScanEye, Undo2 } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, ChevronRight, Columns2, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, ScanEye, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { DEFAULT_LAYOUT, MODES, missingInputs, slotsFor, type LayoutSettings, type Mode, type Slot } from "@/lib/studio";
+import { DEFAULT_LAYOUT, MODES, VISUAL, missingInputs, slotsFor, type LayoutSettings, type Mode, type Slot } from "@/lib/studio";
 import { docText, textToSpans, type Span } from "@/lib/doc/model";
 import { manualReplace, resolvePlan } from "@/lib/plan";
 import { cn } from "@/lib/utils";
@@ -390,6 +390,24 @@ export function Studio() {
               }}
             />
           ))}
+          {restyle && uploads.source && uploads.reference && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              disabled={!VISUAL.includes(uploads.source.kind)}
+              title={VISUAL.includes(uploads.source.kind) ? undefined : "A handwriting reference must be a PDF or image"}
+              onClick={() => {
+                const { source, reference } = uploads;
+                if (!source || !reference) return;
+                setUploads((p) => ({ ...p, source: reference, reference: source }));
+                cloud.upload(name, mode, "source", reference.file);
+                cloud.upload(name, mode, "reference", source.file);
+              }}
+            >
+              <ArrowUpDown className="size-4" aria-hidden /> Swap content and handwriting
+            </Button>
+          )}
           {mode !== "digital" && (
             <p className="px-1 text-xs leading-relaxed text-muted">
               Only use handwriting you are authorised to use. The reference supplies style only — its text is never copied. Signatures and ID documents are not supported.
@@ -478,7 +496,7 @@ export function Studio() {
               ) : uploads.source ? (
                 <div className={cn("grid gap-6", split && "md:grid-cols-2")}>
                   <figure className="min-w-0">
-                    <figcaption className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-2">{mode === "convert" ? "Assignment 1 — content" : restyle ? "Source" : "Original"}</figcaption>
+                    <figcaption className="mb-2 text-xs uppercase tracking-[0.14em] text-ink-2">{restyle ? "Content — text to write" : "Original"}</figcaption>
                     <DocumentView
                       state={original}
                       file={uploads.source.file}
@@ -552,12 +570,13 @@ export function Studio() {
           </section>
 
           {restyle && ready && (
-            <Transcript value={transcript} onChange={setTranscript} confirmed={transcriptOk} onConfirm={setTranscriptOk} previews={ready.loaded.previews} aiReady={!!ai?.configured && !ai.error} />
+            <Transcript value={transcript} onChange={setTranscript} confirmed={transcriptOk} onConfirm={setTranscriptOk} previews={ready.loaded.previews} aiReady={!!ai?.configured && !ai.error} scanned={ready.loaded.model.origin === "scanned"} fileName={uploads.source?.file.name} />
           )}
 
           {(mode === "clone" || mode === "convert") && (
             <GenerationPanel
               text={composing ? content : transcript}
+              contentFrom={composing ? "your typed content" : `the text of ${uploads.source?.file.name ?? "the content file"}`}
               textReady={
                 !uploads.reference
                   ? "Add the handwriting reference first."
