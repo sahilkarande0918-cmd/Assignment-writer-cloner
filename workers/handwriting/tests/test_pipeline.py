@@ -125,6 +125,9 @@ def test_characters_outside_the_model_charset_are_drawn_from_a_font():
 
     assert segments("50%", CHARSET) == [("50", True), ("%", False)]
     assert segments("<a@b>", CHARSET) == [("<", False), ("a", True), ("@", False), ("b", True), (">", False)]
+    # punctuation-only pieces are drawn at natural size, not stretched by the model into blobs
+    assert segments("[B].", CHARSET) == [("[", False), ("B", True), ("]", False), (".", False)]
+    assert segments("-", CHARSET) == [("-", False)] and segments("law.", CHARSET) == [("law.", True)]
     buf = io.BytesIO()
     ruled_page().save(buf, "PNG")
     text = "Yield 100% at 25°C, cost £5 © {x} [α≤β] ™"

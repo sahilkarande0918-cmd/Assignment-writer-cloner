@@ -29,7 +29,9 @@ def font_for(c: str) -> str | None:
 
 
 def segments(word: str, charset: set[str]) -> list[tuple[str, bool]]:
-    """Split a word into (text, model_can_write) runs: "50%" -> [("50", True), ("%", False)]."""
+    """Split a word into (text, model_can_write) runs: "50%" -> [("50", True), ("%", False)].
+    A run with no letter or digit ("." after "]", a lone "-") is drawn from the font too: DiffusionPen stretches
+    every image to full height, so a generated lone full stop would come out as a blob."""
     out: list[tuple[str, bool]] = []
     for c in word:
         ok = c in charset
@@ -37,7 +39,7 @@ def segments(word: str, charset: set[str]) -> list[tuple[str, bool]]:
             out[-1] = (out[-1][0] + c, True)
         else:
             out.append((c, ok))
-    return out
+    return [p for t, ok in out for p in ([(t, ok)] if not ok or any(c.isalnum() for c in t) else [(c, False) for c in t])]
 
 
 def glyph(c: str, pen: tuple[int, int, int], xheight: float) -> tuple[Image.Image, Image.Image, int]:

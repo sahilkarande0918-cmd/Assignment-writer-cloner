@@ -67,8 +67,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     t0 = time.time()
     report = progress or (lambda *_: None)
     text, notes = normalise(payload["text"])
-    drawn = unsupported_chars(text)
-    bad = {c for c in drawn if not font_for(c)}
+    bad = {c for c in unsupported_chars(text) if not font_for(c)}
     if bad:
         raise ValueError(f"These characters cannot be written: {' '.join(sorted(bad))}. Remove or replace them.")
     if not text.strip():
@@ -148,7 +147,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
         "pen": "#%02x%02x%02x" % pen,
         "style_crops": [list(b) for b in boxes],
         "normalised": notes,
-        "font_drawn": sorted(drawn),  # characters drawn from a font, not generated in the writer's style
+        "font_drawn": sorted({c for occ, _ in tokens for t, ok in segs[occ] if not ok for c in t}),  # characters drawn from a font, not generated in the writer's style
         "issues": issues,
         "word_check": check_report,
         "pages": [

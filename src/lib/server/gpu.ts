@@ -32,7 +32,8 @@ def sh(*cmd, **kw):
     subprocess.run(cmd, check=True, **kw)
 sh("git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", REPO, APP)
 sh("git", "-C", APP, "sparse-checkout", "set", "workers/handwriting")
-sh(sys.executable, "-m", "pip", "install", "-q", "diffusers>=0.30", "einops", "omegaconf")
+# Same versions as the tested local worker (requirements.lock.txt), so output matches.
+sh(sys.executable, "-m", "pip", "install", "-q", "transformers==5.22.1", "tokenizers==0.23.3", "diffusers==0.42.1", "einops==0.8.2", "omegaconf", "sentencepiece", "protobuf")
 sh(sys.executable, "download_models.py", cwd=W, stdout=subprocess.DEVNULL)
 env = {**os.environ, "HW_API_URL": API, "HW_WORKER_TOKEN": TOKEN, "HW_BATCH": "32"}
 sh(sys.executable, "-u", "worker.py", "--drain", "--idle", "300", cwd=W, env=env)
