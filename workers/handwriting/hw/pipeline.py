@@ -76,7 +76,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
 
     report("Reading the handwriting reference", 0, 1)
     reference = Image.open(io.BytesIO(files["reference"])).convert("RGB")
-    crops, ink_rgb, boxes = extract_style(reference)
+    crops, ink_rgb, boxes = extract_style(reference, count=getattr(gen, "style_count", 5))
     pen = ink_rgb if payload.get("penColor", "match") == "match" else hex_rgb(payload["penColor"])
 
     size = payload.get("pageSize", "A4")
@@ -101,7 +101,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     base = int(payload.get("seed", 1234))
     bumps = {int(k): int(v) for k, v in payload.get("bumps", {}).items()}
     n = candidates if reader else 1
-    segs = {occ: segments(w, CHARSET) for occ, w in tokens}
+    segs = {occ: segments(w, getattr(gen, "charset", CHARSET)) for occ, w in tokens}
     # Model-writable runs of each word; the rest are font glyphs. Run k of an occurrence gets its own seed offset.
     runs = [(occ, k, t) for occ, _ in tokens for k, (t, ok) in enumerate(segs[occ]) if ok]
     # Each run gets n candidates from distinct seeds; "regenerate line" bumps move to a fresh set.

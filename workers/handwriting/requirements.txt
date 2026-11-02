@@ -11,6 +11,8 @@ huggingface_hub
 timm
 einops
 opencv-python-headless
+matplotlib            # imported by the VATr++ package
+safetensors
 pillow
 numpy
 requests

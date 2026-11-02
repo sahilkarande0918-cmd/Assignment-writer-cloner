@@ -23,7 +23,7 @@ gpu_image = (
     .pip_install(
         "torch==2.11.0", "torchvision==0.26.0", "diffusers==0.42.1", "transformers==5.22.1", "accelerate==1.15.0",
         "safetensors==0.8.0", "huggingface_hub==2.4.0", "timm==1.0.30", "einops==0.8.2", "opencv-python-headless==5.0.0.93",
-        "pillow==13.0.0", "numpy==2.4.6", "requests==2.34.2", "omegaconf", "sentencepiece", "protobuf",
+        "pillow==13.0.0", "numpy==2.4.6", "requests==2.34.2", "omegaconf", "sentencepiece", "protobuf", "matplotlib",
     )
     .add_local_file("download_models.py", f"{APP_DIR}/download_models.py", copy=True)
     .run_commands(f"cd {APP_DIR} && python download_models.py")

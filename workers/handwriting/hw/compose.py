@@ -234,6 +234,7 @@ def tint(word_img: Image.Image, pen: tuple[int, int, int], target_h: int) -> tup
     k = target_h / crop.height
     crop = crop.resize((max(1, round(crop.width * k)), max(1, target_h)), Image.LANCZOS)
     a = np.asarray(crop, dtype=np.float32) / 255
+    a = np.clip(a / max(float(np.percentile(a, 90)), 0.5), 0, 1)  # paper tone of the sample -> pure white (no grey box)
     alpha = np.clip((0.9 - a) / 0.6, 0, 1)  # dark -> opaque ink; paper-white -> transparent
     return Image.new("RGB", crop.size, pen), Image.fromarray((alpha * 255).astype(np.uint8))
 

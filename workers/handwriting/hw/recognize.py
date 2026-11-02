@@ -23,7 +23,9 @@ def distance(a: str, b: str) -> int:
 def word_error(target: str, read: str) -> float:
     """Normalised edit distance to the best-matching prefix of the reading. TrOCR is a line model and often
     appends hallucinated punctuation or repeats a single word ("temperature . temperature ."); those tails are ignored."""
-    t, r = target.replace(" ", ""), read.replace(" ", "")
+    # Case is ignored: TrOCR reads clearly drawn capitals as lowercase ("She" -> "she"), so case differences would
+    # only trigger useless rewrites.
+    t, r = target.replace(" ", "").casefold(), read.replace(" ", "").casefold()
     best = min(distance(t, r[:k]) for k in range(len(r) + 1))
     return best / max(1, len(t))
 

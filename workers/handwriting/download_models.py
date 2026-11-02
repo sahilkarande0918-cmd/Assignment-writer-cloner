@@ -6,6 +6,7 @@ OpenRAIL-M (use restrictions incl. no impersonation without consent), CANINE-c A
 """
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
@@ -17,6 +18,8 @@ SOURCES = {
     # CANINE weights are already inside the DiffusionPen checkpoint; only config + tokenizer are needed.
     "canine-c": ("google/canine-c", ["config.json", "special_tokens_map.json", "tokenizer_config.json"]),
     # Word checker for best-of-N selection (MIT per microsoft/unilm; fine-tuned on IAM).
+    # Default engine (ADR-035): upstream package code + weights + the glyph and word files it opens at start-up.
+    "vatrpp": ("blowing-up-groundhogs/vatrpp", ["*.py", "models/**", "data/**", "config.json", "model.safetensors", "mytext.txt", "files/unifont.pickle", "files/english_words.txt"]),
     "trocr-small": ("microsoft/trocr-small-handwritten", ["config.json", "generation_config.json", "preprocessor_config.json", "pytorch_model.bin", "sentencepiece.bpe.model", "special_tokens_map.json", "tokenizer_config.json"]),
 }
 
@@ -31,7 +34,10 @@ def sha256(p: Path) -> str:
 
 def main():
     manifest = {}
+    skip = {"diffusionpen", "sd15", "canine-c"} if os.environ.get("HW_ENGINE", "vatrpp") == "vatrpp" else {"vatrpp"}
     for name, (repo, files) in SOURCES.items():
+        if name in skip:  # only the selected engine (HW_ENGINE) is downloaded
+            continue
         target = MODELS / name
         snapshot_download(repo, allow_patterns=files, local_dir=target)
         manifest[name] = {"repo": repo, "files": {}}

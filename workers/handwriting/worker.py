@@ -47,7 +47,8 @@ def check() -> dict:
             info["kernels"] = "ok"
         except Exception as e:  # e.g. no sm_120 kernels in an old build
             info["kernels"] = f"failed: {e}"
-    need = ["diffusionpen/ema_ckpt.pt", "diffusionpen/iam_style_diffusionpen.pth", "sd15/vae/diffusion_pytorch_model.fp16.safetensors", "canine-c/config.json"]
+    need = (["vatrpp/model.safetensors", "vatrpp/files/unifont.pickle"] if os.environ.get("HW_ENGINE", "vatrpp") == "vatrpp"
+            else ["diffusionpen/ema_ckpt.pt", "diffusionpen/iam_style_diffusionpen.pth", "sd15/vae/diffusion_pytorch_model.fp16.safetensors", "canine-c/config.json"])
     info["models_missing"] = [n for n in need if not (MODELS / n).exists()]
     return info
 
@@ -130,9 +131,15 @@ def handle(job: dict, gen, reader=None) -> None:
 
 
 def load():
+    """The engine: VATr++ by default (ADR-035), DiffusionPen with HW_ENGINE=diffusionpen."""
     from hw.model import MODELS, Generator
 
-    gen = Generator()
+    if os.environ.get("HW_ENGINE", "vatrpp") == "vatrpp":
+        from hw.vatr import VatrGenerator
+
+        gen = VatrGenerator()
+    else:
+        gen = Generator()
     reader = None
     if (MODELS / "trocr-small" / "pytorch_model.bin").exists():
         from hw.recognize import Reader

@@ -213,3 +213,17 @@ Both newer models need loading workarounds on transformers 5 (built from their o
 Decision pending owner approval: make VATr++ the default engine (per word, so tables/rewrites/layout stay), keep
 DiffusionPen as an option; remaining work: transparent word backgrounds (VATr++ patches are light grey) and
 resolution (32 px tall).
+
+## ADR-035 VATr++ is the default engine (2026-11-02, owner approved)
+`hw/vatr.py` wraps the upstream VATr++ package (downloaded to models/vatrpp; built directly because transformers 5
+cannot from_pretrained() it). Same generator interface, so layout, tables, digits-from-font, the word check and
+rewrites are unchanged. Findings while integrating:
+- Its noise option gives variety but costs accuracy (37 vs 48 of 54 words exact), so noise is off and candidates
+  differ by the order of the 15 style samples (8 orders; 100 % distinct images, accuracy unchanged).
+- Style uses 15 crops from the reference (it was trained with 15).
+- The word check is now case-insensitive: TrOCR reads clearly drawn capitals as lowercase, which triggered useless
+  rewrites.
+- Grey sample backgrounds are normalised to the paper tone before inking.
+Measured: Uhv page 1 table in its own handwriting 106/110 exact (DiffusionPen 100/110), 30 s vs 52 s; 69-word lab
+report 68/69 exact, CER 1.5 %, 7 s (DiffusionPen 53/69, 10.3 %, 44.5 s). DiffusionPen stays available with
+HW_ENGINE=diffusionpen. Weights: MIT code, trained on IAM (non-commercial research data), like DiffusionPen.
