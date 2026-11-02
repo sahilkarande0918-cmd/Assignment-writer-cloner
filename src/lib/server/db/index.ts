@@ -5,7 +5,7 @@ import * as schema from "./schema";
 
 let client: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
-export const cloudConfigured = () => !!(process.env.DATABASE_URL && process.env.AWS_ENDPOINT_URL_S3 && process.env.STORAGE_BUCKET);
+export const cloudConfigured = () => !!(process.env.DATABASE_URL && (process.env.S3_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3) && process.env.STORAGE_BUCKET);
 
 export function db() {
   const url = process.env.DATABASE_URL;

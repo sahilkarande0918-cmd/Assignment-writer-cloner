@@ -1,0 +1,21 @@
+# Never upload secrets, local tooling, the Python worker, model weights or test output to Vercel.
+.env*
+!.env.example
+.owner-password
+.vercel
+.claude
+.next
+node_modules
+public/pdfjs
+public/mupdf
+workers
+test-results
+playwright-report
+tests
+docs
+drizzle
+*.log
+*.pt
+*.pth
+*.bin
+*.safetensors

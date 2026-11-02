@@ -75,3 +75,6 @@ workers/**/outputs/
 
 # owner password (plaintext, local only)
 /.owner-password
+
+.vercel
+.env*

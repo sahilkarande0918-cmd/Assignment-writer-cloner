@@ -3,7 +3,15 @@ import { CopyObjectCommand, DeleteObjectsCommand, GetObjectCommand, HeadObjectCo
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let s3: S3Client | undefined;
-const client = () => (s3 ??= new S3Client({ forcePathStyle: true })); // Neon requires path-style addressing
+// Neon requires path-style addressing. Locally the AWS_* names from `neon env pull` work as-is; on Vercel those names are
+// reserved by the platform, so the same values are provided as S3_* and passed explicitly.
+const client = () =>
+  (s3 ??= new S3Client({
+    forcePathStyle: true,
+    ...(process.env.S3_ENDPOINT && { endpoint: process.env.S3_ENDPOINT }),
+    ...(process.env.S3_REGION && { region: process.env.S3_REGION }),
+    ...(process.env.S3_ACCESS_KEY_ID && { credentials: { accessKeyId: process.env.S3_ACCESS_KEY_ID, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "" } }),
+  }));
 const Bucket = () => {
   const b = process.env.STORAGE_BUCKET;
   if (!b) throw new Error("STORAGE_BUCKET is not configured.");
