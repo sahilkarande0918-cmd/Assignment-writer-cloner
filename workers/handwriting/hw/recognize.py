@@ -2,6 +2,8 @@
 Licence: MIT per microsoft/unilm (the HF card has no licence tag); fine-tuned on IAM (non-commercial research data)."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import torch
 from PIL import Image
 
@@ -27,21 +29,34 @@ def word_error(target: str, read: str) -> float:
 
 
 class Reader:
+    """One TrOCR replica per GPU; images are split across them (same readings as one GPU).
+    fp16 was measured and rejected: 9 of 400 readings changed ("resistance" -> "misinterpret"), which would change
+    which samples get picked."""
+
     name = "trocr-small-handwritten"
 
     def __init__(self, device: str | None = None):
         from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         path = MODELS / "trocr-small"
         self.processor = TrOCRProcessor.from_pretrained(path)
-        self.model = VisionEncoderDecoderModel.from_pretrained(path).to(self.device).eval()
+        devices = [device] if device else [f"cuda:{i}" for i in range(torch.cuda.device_count())] or ["cpu"]
+        self.models = [(d, VisionEncoderDecoderModel.from_pretrained(path).to(d).eval()) for d in devices]
+        self.device = devices[0]
 
     @torch.no_grad()
-    def read(self, images: list[Image.Image], batch: int = 32) -> list[str]:
+    def _read(self, slot: int, images: list[Image.Image], batch: int) -> list[str]:
+        dev, model = self.models[slot]
         out: list[str] = []
         for i in range(0, len(images), batch):
-            px = self.processor(images=[im.convert("RGB") for im in images[i : i + batch]], return_tensors="pt").pixel_values.to(self.device)
-            ids = self.model.generate(px, max_new_tokens=24)
+            px = self.processor(images=[im.convert("RGB") for im in images[i : i + batch]], return_tensors="pt").pixel_values.to(dev)
+            ids = model.generate(px, max_new_tokens=24)
             out += [s.strip() for s in self.processor.batch_decode(ids, skip_special_tokens=True)]
         return out
+
+    def read(self, images: list[Image.Image], batch: int = 32) -> list[str]:
+        k = len(self.models)
+        size = -(-len(images) // k)  # contiguous shares keep the order simple
+        with ThreadPoolExecutor(k) as pool:
+            parts = pool.map(lambda s: self._read(s, images[s * size : (s + 1) * size], batch), range(k))
+            return [r for part in parts for r in part]

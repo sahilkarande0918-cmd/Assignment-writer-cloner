@@ -11,9 +11,11 @@ import * as jobs from "@/lib/server/jobs";
 const enabled = !!process.env.KAGGLE_LIVE && !!process.env.KAGGLE_USERNAME && !!process.env.DATABASE_URL;
 
 describe.skipIf(!enabled)("Kaggle cloud GPU", () => {
-  it("starts a Kaggle run that generates and uploads the pages", { timeout: 40 * 60_000 }, async () => {
+  it("starts a Kaggle run that generates and uploads the pages", { timeout: 90 * 60_000 }, async () => {
+    // KAGGLE_TEXT_FILE=<path> benchmarks a real-sized assignment instead (the symbol check is skipped then).
+    const custom = process.env.KAGGLE_TEXT_FILE ? readFileSync(process.env.KAGGLE_TEXT_FILE, "utf8") : null;
     const payload = {
-      text: "Kaggle check: the error was 2% at 25°C, cost £5 © lab {A} [B].\n\nResult: the period depends on the length.",
+      text: custom ?? "Kaggle check: the error was 2% at 25°C, cost £5 © lab {A} [B].\n\nResult: the period depends on the length.",
       pageSize: "A4", paper: "ruled", penColor: "#1f2f5c", sizePt: 14, keepLineBreaks: true, seed: 11, candidates: 3, bumps: {},
       marginLeftMm: 25, marginTopMm: 30, lineSpacingMm: 8,
     };
@@ -23,7 +25,7 @@ describe.skipIf(!enabled)("Kaggle cloud GPU", () => {
       let j = await jobs.getJob(job.id);
       const seen = new Set<string>();
       const t0 = Date.now();
-      while (j && !["succeeded", "failed", "cancelled"].includes(j.status) && Date.now() - t0 < 35 * 60_000) {
+      while (j && !["succeeded", "failed", "cancelled"].includes(j.status) && Date.now() - t0 < 85 * 60_000) {
         await new Promise((r) => setTimeout(r, 10_000));
         j = await jobs.getJob(job.id);
         const p = j?.progress as { stage?: string; percent?: number } | null;
@@ -34,10 +36,12 @@ describe.skipIf(!enabled)("Kaggle cloud GPU", () => {
       expect(j?.error ?? null).toBeNull();
       expect(j?.status).toBe("succeeded");
       expect([...seen].some((l) => /^running .+ [0-9.]+$/.test(l))).toBe(true); // a real stage + percentage was reported
-      const m = j!.manifest as { font_drawn: string[]; word_check: { candidates: number } | null; seconds: number };
-      expect(m.font_drawn).toEqual(expect.arrayContaining(["%", "°", "£", "©", "{", "}", "[", "]"]));
-      expect(m.word_check?.candidates).toBe(3); // full quality: best of 3 with the word check
-      console.log(`generated in ${m.seconds}s on the GPU; total ${Math.round((Date.now() - t0) / 1000)}s including start-up`);
+      const m = j!.manifest as { font_drawn: string[]; word_check: { candidates: number; exact_words: number; exact_first_pass: number; words: number; cer: number }; seconds: number; pages: unknown[] };
+      if (!custom) expect(m.font_drawn).toEqual(expect.arrayContaining(["%", "°", "£", "©", "{", "}", "[", "]"]));
+      expect(m.word_check.candidates).toBe(3); // full quality: best of 3 with the word check
+      console.log(`generated in ${m.seconds}s on the GPU; total ${Math.round((Date.now() - t0) / 1000)}s including start-up; ${m.pages.length} pages`);
+      const wc = m.word_check;
+      console.log(`word check: ${wc.exact_words}/${wc.words} exact (first pass ${wc.exact_first_pass}), CER ${(wc.cer * 100).toFixed(1)}%`);
       const pub = await jobs.publicJob(j!);
       expect(pub.artifacts).toContain("page-01.png");
       const page = await fetch((await jobs.artifactUrl(job.id, "page-01.png"))!);
