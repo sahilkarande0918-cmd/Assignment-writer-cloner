@@ -6,7 +6,7 @@
 | 2 | Secure imports, structural analysis, Groq planning | ✅ complete | `33b9218` (verified via ls-remote) |
 | 3 | Digital editing + deterministic export | ✅ complete | `cdb70dd` (verified via ls-remote) |
 | 4 | Handwriting worker, paper reconstruction, new assignments | ✅ complete | `6f412e4` (verified via ls-remote) |
-| 5 | Persistence, jobs, polish, deployment | ✅ complete (deployment pending owner approval) | see HANDOFF |
+| 5 | Persistence, jobs, polish, deployment | ✅ complete — deployed | `9d9b9d8` (verified via ls-remote) |
 
 ## Owner-added requirement (2026-11-01)
 **Convert Handwriting** mode — keep assignment 1's content, write it in assignment 2's handwriting (ADR-009). Phase 1: mode + inputs. Phase 2: OCR transcript, Groq-vision transcript improvement (with consent), mandatory "I have checked this transcript". Phase 4: generation + OCR back-check.
@@ -59,5 +59,11 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 - One local GPU worker; generation waits in the queue while it is off.
 - `'unsafe-inline'` scripts in CSP (Next bootstrap without nonces).
 
+## Deployment (verified 2026-11-02)
+- Production: **https://assignment-writer-cloner.vercel.app** (Vercel team `sahilkarande0918-9163s-projects`, project `assignment-writer-cloner`, region iad1, GitHub `main` auto-deploys).
+- Env: 13 production variables (8 sensitive) copied from `.env.local` via stdin; storage uses `S3_*` names because Vercel reserves `AWS_*`.
+- Smoke test against the live URL: 21/21 passed — landing + security headers, /studio -> /login, 401s without session/worker token, wrong password refused, owner sign-in (Secure HttpOnly cookie), Groq models available, worker status, create project on production Neon, signed upload -> server verification -> signed download (same bytes), library listing, delete (404 afterwards). Test project removed.
+- First deploy served 404s because the project preset was "Other"; fixed with `vercel.json` (`framework: nextjs`).
+
 ## Next action
-Deploy to Vercel after the owner confirms the account/project; set env vars there (no secrets in git); record the verified URL.
+Owner: sign in at the production URL with the password in `.owner-password`; run the GPU worker with `workers\handwriting\run-worker.ps1 -Api https://assignment-writer-cloner.vercel.app` when generating handwriting. Optional follow-ups: LibreOffice DOCX->PDF in the worker, authorised-sample similarity study.

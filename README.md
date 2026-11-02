@@ -4,6 +4,8 @@ Private web studio to edit assignments, preserve digital document fonts where po
 
 > Generated handwriting is an approximation of a style, never an identical copy. Scanned-page edits are reconstructions, not lossless edits.
 
+**Live (owner sign-in required):** https://assignment-writer-cloner.vercel.app
+
 ## Quick start
 ```bash
 npm install

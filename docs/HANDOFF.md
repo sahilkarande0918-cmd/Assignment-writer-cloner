@@ -21,6 +21,7 @@
 | 2 | feat(phase-2): implement document intake and Groq edit planning | `33b921834e32fa19537beb1f20cf09e54b0b124b` | `git ls-remote origin main` matched 2026-11-01 |
 | 3 | feat(phase-3): add layout-aware digital editor and exports | `cdb70dd660c92313a9731903185f735fa8a2eefb` | `git ls-remote origin main` matched 2026-11-02 |
 | 4 | feat(phase-4): integrate reference handwriting generation | `6f412e4c0a77d4a4bb4a9ed51c12695265cf7e50` | `git ls-remote origin main` matched 2026-11-02 |
+| 5 | feat(phase-5): ship persistent assignment studio | `9d9b9d827d555e326523355954c0bca8be9565da` | `git ls-remote origin main` matched 2026-11-02 |
 
 ## Changes since previous phase
 Phase 5: Neon persistence (Drizzle, migrations in `drizzle/`), private bucket uploads, owner sign-in (`src/proxy.ts`, `/login`), projects API, library UI, studio autosave/restore, job queue on Neon, security headers, integration tests (`tests/integration`), perf test.
@@ -30,6 +31,9 @@ Phase 4: repo moved to `D:\Assignment writer_cloner` (out of OneDrive). Handwrit
 Phase 3: `src/lib/edit/*` engines (MuPDF native PDF, DOCX XML runs, raster reconstruction, text), `src/lib/export.ts`, `src/lib/diff.ts`, versions/undo/redo/diff/report UI, working export dialog, `scripts/verify_exports.py`, `scripts/copy-assets.mjs` (renamed from copy-pdfjs; now also copies MuPDF to `public/mupdf`).
 
 Phase 2: document intake (PDF.js/JSZip/docx-preview/Tesseract), Groq plan + transcribe + status APIs, resolver, plan/diff UI, manual find & replace, Convert transcript, fixtures, live eval.
+
+## Deployment
+- https://assignment-writer-cloner.vercel.app — Vercel project `assignment-writer-cloner` (team `sahilkarande0918-9163s-projects`); `main` auto-deploys. Manual: `vercel deploy --prod --scope sahilkarande0918-9163s-projects`. Env vars: `vercel env add NAME production` (value via stdin); storage uses `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
 
 ## Commands added in phase 5
 - `node scripts/set-owner-password.mjs [password]` — writes `OWNER_PASSWORD_HASH` to `.env.local`, plaintext to `.owner-password` (both git-ignored).
