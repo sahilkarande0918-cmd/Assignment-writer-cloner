@@ -236,3 +236,17 @@ DPI; TXT/MD = the written text; DOCX refused), is disabled until something is ge
 changed after the last generation ("generate again"). In Edit/Digital modes, exporting with no applied change says it
 is the ORIGINAL and points handwritten scans to Convert Handwriting (find & replace needs readable text positions,
 which the local OCR cannot give for handwriting).
+
+## ADR-037 "Real handwriting" collage engine — experiment, not in the product (2026-11-04, owner feedback)
+Owner, on a VATr++ page for MIT Prototyping Assignment 1: "its handwriting did not match at all". VATr++/DiffusionPen
+are IAM-trained and only approximate a writer. Experiment: write with the writer's OWN ink cut from their scans.
+- `experiments/collage/bank.py`: page scans + Groq line transcripts → word crops; a crop is kept only when TrOCR's
+  WHOLE reading is one transcript word and its width per character is plausible. Words are cut into letters at the
+  faintest ink column near ideal cuts; per-letter medoid filter (similarity ≥ 0.5) drops wrong cuts; `typ` = typicality.
+- `experiments/collage/collage.py`: real word if banked, else built from the most typical letters (capitals/digits
+  need 1 sample, others 3), rebuilt up to 10× and judged by reading back; punctuation drawn as pen marks; descenders
+  only for g j q y f; edge fragments of neighbouring words removed (not for digit words — it cut the PRN's last 4).
+- Result: 2-page assignment delivered to the owner; closest match so far. Limits: letters the writer never wrote
+  (from DSA pages: j, some b/w/q, several capitals) come from the Caveat font; real-word cut-outs vary in size.
+Not integrated: it needs several pages of the writer's handwriting plus a transcript, and integration (worker engine
+`HW_ENGINE=collage`, bank built per reference) needs owner approval. Bank/scans are private and git-ignored.

@@ -79,3 +79,8 @@ workers/**/outputs/
 .vercel
 .env*
 /workers/handwriting/hf_cache/
+
+# collage engine data: the writer's own word/letter bank and page scans are private
+workers/handwriting/experiments/**/*.pkl
+workers/handwriting/experiments/**/*.png
+workers/handwriting/experiments/**/lines.json

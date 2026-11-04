@@ -95,3 +95,6 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 2. Owner signs up at https://assignment-writer-cloner.vercel.app/login with sahilkarande0918@gmail.com (code by email).
 3. Before many students: custom SMTP for Neon Auth emails (shared SMTP is rate-limited).
 Optional: LibreOffice DOCX->PDF in the worker; authorised-sample similarity study.
+
+## Experiment — collage engine (2026-11-04)
+Writer's-own-ink collage (ADR-037) in `workers/handwriting/experiments/collage/`; not wired into the app. Integration awaits owner approval.

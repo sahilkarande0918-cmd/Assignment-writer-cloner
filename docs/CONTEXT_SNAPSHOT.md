@@ -4,6 +4,10 @@ Written 2026-11-02 before context compaction. Source of truth for requirements: 
 Read order for a new session: `master_prompt.md` → `CLAUDE.md` → this file → `docs/PROJECT_STATUS.md` → `docs/HANDOFF.md`
 → `docs/DECISIONS.md` → `git log -5 --oneline && git status`.
 
+## 0a. Update 2026-11-04
+Last product push `4b654f6` (export fix). Collage "real handwriting" experiment added (ADR-037, `docs/HANDOFF.md` top).
+VATr++ is the default engine (ADR-035); accounts + free Kaggle GPU live (ADR-027..030).
+
 ## 0. Update after this snapshot (2026-11-02, later)
 Accounts (Neon Auth), font fallback for all characters, progress bar and Modal cloud GPU were added — see
 `docs/PROJECT_STATUS.md` "Post-phase update" and ADR-027..029. The owner-password sections below are superseded:

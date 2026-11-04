@@ -1,5 +1,21 @@
 # Handoff
 
+## Immediately before the last compaction (2026-11-04)
+- Doing: owner's MIT Prototyping Assignment 1 in their own handwriting (reference: owner's DSA-IA activity PDF),
+  notebook paper, hand-drawn prototype sketch, name/PRN/batch filled, max 2 pages. **Delivered** as a PDF in chat.
+- Built for it: the collage engine (ADR-037), now saved in `workers/handwriting/experiments/collage/` (bank.py,
+  collage.py). The one-off generator `make_assignment2.py` (assignment text, sketch, 7 mm ruling, Caveat fallback for
+  missing letters) and the private bank/scans stay outside git in `C:\Users\Sahil\AppData\Local\Temp\claude\D--Assignment-writer-cloner\b839fc53-7fb9-48b6-9ed6-c68dba69de1f\scratchpad` (dsa/, out/).
+- Product state: unchanged since `4b654f6` (all phases done, deployed). Nothing unfinished in the app.
+- Next exact task (needs owner approval first): integrate the collage engine as `HW_ENGINE=collage` in
+  `workers/handwriting/worker.py` `load()` — build the bank per job from the reference pages + a Groq transcript
+  (`transcribeImage`), then render with `collage.render_pages`; add one pytest in `workers/handwriting/tests`.
+  Alternative still open from master_prompt: browser-first rendering (Canvas + Web Worker) — unevaluated.
+- Known errors: local DNS/NAT64 to Neon fails intermittently (use `node --dns-result-order=ipv4first`); a full
+  live-site VATr++ job was never run end to end for that reason.
+- Next test: `cd workers/handwriting && .venv\Scripts\python -m pytest tests` (11 pass) and `npm test`.
+- Next git checkpoint: `feat(handwriting): collage engine from the writer's own ink` once integrated.
+
 > Latest: VATr++ default engine, AI reading of scans, handwritten tables (ADR-033…035); accounts + free Kaggle cloud GPU live (PROJECT_STATUS "Post-phase update"). Live GPU test: `KAGGLE_LIVE=1 npm run test:live -- kaggle` (production queue, cleans up).
 > Full recovery snapshot: `docs/CONTEXT_SNAPSHOT.md` (state, versions, env names, ML results, schema, restart commands).
 

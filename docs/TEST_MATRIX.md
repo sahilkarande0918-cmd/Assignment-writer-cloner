@@ -150,3 +150,7 @@ Unit 10/10, E2E 16/16, lint, build — pass.
 
 ## Still required (later phases)
 Password-protected PDF fixture, multi-page photo with perspective, visual-diff masks for unchanged regions (ph3), handwriting CER (ph4).
+
+## Collage engine (2026-11-04, experiment)
+Manual: MIT Prototyping Assignment 1, 2 pages, PRN read back as "202501110194" after the digit-word fix; built words
+judged by TrOCR read-back (best of 10). No automated test yet — add one with the engine if it is integrated.

@@ -35,3 +35,9 @@ Python available: 3.11 (64-bit), 3.13, 3.14.
 
 ## Groq (verified 2026-11-01 via models API, `node --env-file=.env.local scripts/groq-check.mjs`)
 `openai/gpt-oss-20b` ✅, `openai/gpt-oss-120b` ✅, `qwen/qwen3.8-27b` ✅ (only vision-capable model on the account). Strict `json_schema` responses worked for gpt-oss-20b in 10/10 live runs. gpt-oss spends completion tokens on hidden reasoning (≈600 tokens for a small request), so `max_completion_tokens` is 8192.
+
+## Writer's-own-ink collage (2026-11-04, ADR-037)
+Bank from 4 DSA pages (owner's handwriting): word crops verified by TrOCR + Groq transcript, letters cut and filtered by
+medoid similarity. Output judged closer to the owner's hand than VATr++ (owner: VATr++ "did not match at all").
+Coverage gaps fall back to Caveat. Browser-first options (fontsketch, draw-your-font, pdfme, ONNX Runtime Web) are
+still unevaluated; the collage method is pure image compositing and would port to Canvas in a Web Worker.
