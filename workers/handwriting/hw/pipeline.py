@@ -62,7 +62,8 @@ def seed_for(base: int, occ: int, bump: int) -> int:
 def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None, candidates: int = 3, progress: Progress | None = None) -> Result:
     """payload: text, pageSize, paper (ruled|grid|plain|reference|source), marginLeftMm, marginTopMm,
     lineSpacingMm, penColor ("#rrggbb" | "match"), sizePt, keepLineBreaks, seed, bumps {occ: n}.
-    files: reference (required, PNG/JPEG page of the writer), paper (optional page whose sheet is reused).
+    files: reference (required, PNG/JPEG page of the writer; reference2.. more pages for the collage engine), paper
+    (optional page whose sheet is reused). payload.referenceText: transcript of the reference pages (collage engine).
     reader: optional word recogniser; when given, the best of `candidates` samples per word is kept.
     Characters outside the model's charset are drawn from a handwriting font (hw/glyphs.py)."""
     t0 = time.time()
@@ -77,6 +78,9 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     report("Reading the handwriting reference", 0, 1)
     reference = Image.open(io.BytesIO(files["reference"])).convert("RGB")
     crops, ink_rgb, boxes = extract_style(reference, count=getattr(gen, "style_count", 5))
+    if hasattr(gen, "prepare"):  # collage engine: bank of the writer's own words/letters from every reference page
+        refs = [Image.open(io.BytesIO(files[k])).convert("RGB") for k in sorted(files) if k.startswith("reference")]
+        gen.prepare(refs, payload.get("referenceText"))
     pen = ink_rgb if payload.get("penColor", "match") == "match" else hex_rgb(payload["penColor"])
 
     size = payload.get("pageSize", "A4")
@@ -101,7 +105,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
     base = int(payload.get("seed", 1234))
     bumps = {int(k): int(v) for k, v in payload.get("bumps", {}).items()}
     n = candidates if reader else 1
-    segs = {occ: segments(w, getattr(gen, "charset", CHARSET)) for occ, w in tokens}
+    segs = {occ: segments(w, getattr(gen, "charset", CHARSET), getattr(gen, "writes_digits", False)) for occ, w in tokens}
     # Model-writable runs of each word; the rest are font glyphs. Run k of an occurrence gets its own seed offset.
     runs = [(occ, k, t) for occ, _ in tokens for k, (t, ok) in enumerate(segs[occ]) if ok]
     # Each run gets n candidates from distinct seeds; "regenerate line" bumps move to a fresh set.
@@ -164,7 +168,7 @@ def run(payload: dict, files: dict[str, bytes], gen: WordGenerator, reader=None,
             "kind": "generated-handwriting",
             "model": gen.name,
             "seed": base,
-            "reference_use": "lettering style only; reference text is not read or copied",
+            "reference_use": getattr(gen, "reference_use", "lettering style only; reference text is not read or copied"),
             "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         },
         "paper": {"source": paper.source, "notes": paper.notes},

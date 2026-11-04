@@ -39,7 +39,8 @@ Status markers: ✅ built · 🟡 partial · ⏳ planned (phase number).
 
 ## Handwriting worker (phase 4)
 `workers/handwriting`: `hw/style.py` (reference → 5 word crops + ink colour), `hw/paper.py` (paper reconstruction /
-synthetic sheet), `hw/model.py` (DiffusionPen), `hw/recognize.py` (TrOCR word check), `hw/compose.py` (layout +
+synthetic sheet), engines `hw/vatr.py` (VATr++, default), `hw/model.py` (DiffusionPen), `hw/collage.py` (writer's own ink,
+per-job when `payload.engine = "collage"`; bank built from `reference`..`reference4` + `payload.referenceText`), `hw/recognize.py` (TrOCR word check), `hw/compose.py` (layout +
 composition + overlap/clip check), `hw/pipeline.py` (job → pages + manifest), `worker.py` (polling client).
 Studio: `GenerationPanel` queues `/api/jobs` (multipart: payload JSON + reference/paper JPEG ≤ 1.8 MB each), polls status,
 shows composite / paper-only / ink-only previews, line regeneration, OCR back-check, PDF/PNG download.

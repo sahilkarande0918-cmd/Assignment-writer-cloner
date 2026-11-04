@@ -30,6 +30,8 @@ const STATUS_TEXT: Record<JobView["status"], string> = {
   cancelled: "Cancelled",
 };
 
+const dataUrl = (b: Blob) => new Promise<string>((resolve, reject) => Object.assign(new FileReader(), { onload: (e: ProgressEvent<FileReader>) => resolve(e.target!.result as string), onerror: reject }).readAsDataURL(b));
+
 const duration = (s: number) => (s < 60 ? "under a minute" : s < 3600 ? `about ${Math.round(s / 60)} min` : `about ${(s / 3600).toFixed(1)} h`);
 
 /** Progress bar fed by the worker heartbeat; indeterminate while the GPU starts. */
@@ -94,6 +96,9 @@ export function GenerationPanel({
   const [bumps, setBumps] = useState<Record<string, number>>({});
   const [sentText, setSentText] = useState("");
   const [check, setCheck] = useState<Check | "running">();
+  const [engine, setEngine] = useState<"model" | "collage">("model");
+  const [preparing, setPreparing] = useState<string>();
+  const refText = useRef<{ file: File; text: string }>(undefined); // AI reading of the reference, reused across Generates
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -145,9 +150,30 @@ export function GenerationPanel({
         bumps: nextBumps,
       };
       const form = new FormData();
-      form.set("payload", JSON.stringify(payload));
       if (projectId) form.set("projectId", projectId);
-      form.set("reference", await pageImage(reference.file, reference.kind), "reference.jpg");
+      if (engine === "collage") {
+        // The writer's own ink: up to 4 reference pages (within the ~4 MB request limit), read by AI to label the words.
+        const refs = [await pageImage(reference.file, reference.kind, 0, 2000)];
+        for (let p = 1; p < 4 && reference.kind === "pdf"; p++) {
+          const b = await pageImage(reference.file, reference.kind, p, 2000).catch(() => null);
+          if (!b || refs.reduce((s, x) => s + x.size, b.size) > 3_400_000) break;
+          refs.push(b);
+        }
+        if (refText.current?.file !== reference.file) {
+          const texts: string[] = [];
+          for (let i = 0; i < refs.length; i++) {
+            setPreparing(`Reading reference page ${i + 1} of ${refs.length} with AI`);
+            const r = await fetch("/api/transcribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ consent: true, image: await dataUrl(refs[i]) }) });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error ?? "Could not read the reference pages.");
+            texts.push(j.text);
+          }
+          refText.current = { file: reference.file, text: texts.join("\n") };
+        }
+        Object.assign(payload, { engine, referenceText: refText.current.text });
+        refs.forEach((b, i) => form.set(i ? `reference${i + 1}` : "reference", b, `reference-${i + 1}.jpg`));
+      } else form.set("reference", await pageImage(reference.file, reference.kind), "reference.jpg");
+      form.set("payload", JSON.stringify(payload));
       if (paper) form.set("paper", await pageImage(paper.upload.file, paper.upload.kind, paper.page), "paper.jpg");
       const r = await fetch("/api/jobs", { method: "POST", body: form, headers: { "idempotency-key": crypto.randomUUID() } });
       const j = await r.json();
@@ -161,6 +187,7 @@ export function GenerationPanel({
       setError((e as Error).message);
     } finally {
       setSubmitting(false);
+      setPreparing(undefined);
     }
   }
 
@@ -206,7 +233,7 @@ export function GenerationPanel({
         </Badge>
       </div>
       <p className="mt-1 text-xs text-muted">
-        Runs the DiffusionPen handwriting model on {worker?.cloud ? "a cloud GPU that starts when you press Generate" : "a GPU worker"}. Results approximate the reference writer&apos;s style; they are marked as generated and are never identical to real handwriting.
+        Runs on {worker?.cloud ? "a cloud GPU that starts when you press Generate" : "a GPU worker"}. The AI model (VATr++) approximates the reference writer&apos;s style; &ldquo;Your own ink&rdquo; reuses the writer&apos;s real words and letters. Results are marked as generated and are never identical to real handwriting.
         {worker && !worker.cloud && !worker.online && " Jobs wait in the queue until a worker is running."}
       </p>
 
@@ -218,6 +245,13 @@ export function GenerationPanel({
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-xs text-ink-2">
+          Engine
+          <select value={engine} onChange={(e) => setEngine(e.target.value as "model" | "collage")} className="rounded-full border border-line-strong bg-paper px-2 py-1">
+            <option value="model">AI model — any reference</option>
+            <option value="collage">Your own ink — 2–4 full pages</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-ink-2">
           Quality
           <select value={candidates} onChange={(e) => setCandidates(+e.target.value)} className="rounded-full border border-line-strong bg-paper px-2 py-1">
             <option value={1}>Fast — 1 sample per word</option>
@@ -226,7 +260,7 @@ export function GenerationPanel({
           </select>
         </label>
         <Button size="sm" disabled={!!textReady || !reference || busy || paused} title={textReady ?? undefined} onClick={() => submit()}>
-          {submitting ? "Preparing…" : busy ? "Working…" : job ? "Generate again" : "Generate pages"}
+          {submitting ? (preparing ?? "Preparing…") : busy ? "Working…" : job ? "Generate again" : "Generate pages"}
         </Button>
         {busy && job && (
           <Button size="sm" variant="ghost" onClick={() => fetch(`/api/jobs/${job.id}/cancel`, { method: "POST" }).then(() => setJob({ ...job, status: "cancelled" }))}>
@@ -234,6 +268,11 @@ export function GenerationPanel({
           </Button>
         )}
         {textReady && <span className="text-xs text-muted">{textReady}</span>}
+        {engine === "collage" && (
+          <p className="basis-full text-xs text-muted">
+            Cuts the writer&apos;s real words and letters from up to 4 pages of the handwriting reference and reuses them; letters the writer never wrote come from a handwriting font (listed after generation). The reference pages are read by Groq AI only to label the cut-outs.
+          </p>
+        )}
         {quota?.limit != null && (
           <span className={`text-xs ${paused ? "text-danger" : "text-muted"}`}>
             {paused ? `All ${quota.limit} free generations used — generation is paused.` : `${quota.left} of ${quota.limit} free generations left`}

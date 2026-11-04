@@ -213,3 +213,48 @@ def test_tables_are_written_as_ruled_tables_with_wrapped_cells():
     # words of column 2 start right of column 1's rule: x of "Reaction" > x of "1."
     boxes = {w["word"]: w["box"] for w in m["pages"][0]["words"]}
     assert boxes["Reaction"][0] > boxes["housewife"][0] > boxes["1."][0]
+
+
+class ScriptReader:
+    """Test double for TrOCR: returns the expected words in reading order (bank building), else a fixed reading."""
+
+    name, device = "script-reader", "cpu"
+
+    def __init__(self, words):
+        self.words = list(words)
+
+    def read(self, images):
+        out, self.words = self.words[: len(images)], self.words[len(images) :]
+        return out + ["?"] * (len(images) - len(out))
+
+
+def test_collage_engine_reuses_the_writers_own_words_and_letters():
+    from hw.collage import CollageGenerator
+    from hw.glyphs import segments
+
+    rows = ["bland cadet label", "table dance blend", "talent cable bent", "lance dental debt", "candle tablet decal"]
+    img = Image.new("RGB", (1400, 850), "white")
+    d = ImageDraw.Draw(img)
+    for i, r in enumerate(rows):
+        x = 60
+        for w in r.split():
+            d.text((x, 60 + i * 150), w, font=font(56), fill=(30, 40, 90))
+            x += d.textlength(w, font=font(56)) + 90
+    words = " ".join(rows).split()
+    gen = CollageGenerator(ScriptReader(words))
+    gen.prepare([img], " ".join(rows))
+    assert set(words) <= set(gen.words)  # every crop was labelled from the transcript
+    assert {"a", "b", "e", "l", "n", "t"} <= gen.charset and "z" not in gen.charset  # unseen letters go to the font
+    assert segments("zeal", gen.charset, gen.writes_digits) == [("z", False), ("eal", True)]
+    real, built = gen.generate(["table", "beat"], [], [1, 2])
+    assert real.size[0] > 40 and built.size[0] > 40
+    assert np.asarray(gen.generate(["table"], [], [1])[0]).tobytes() == np.asarray(real).tobytes()  # seeded = repeatable
+
+
+def test_collage_engine_needs_enough_handwriting():
+    from hw.collage import CollageGenerator
+
+    with pytest.raises(ValueError, match="upload more pages"):
+        CollageGenerator(ScriptReader([])).prepare([ruled_page(("one",))], "one")
+    with pytest.raises(ValueError, match="word checker"):
+        CollageGenerator(None)

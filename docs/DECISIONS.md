@@ -237,7 +237,7 @@ changed after the last generation ("generate again"). In Edit/Digital modes, exp
 is the ORIGINAL and points handwritten scans to Convert Handwriting (find & replace needs readable text positions,
 which the local OCR cannot give for handwriting).
 
-## ADR-037 "Real handwriting" collage engine — experiment, not in the product (2026-11-04, owner feedback)
+## ADR-037 "Real handwriting" collage engine (2026-11-04 experiment; integrated 2026-11-05, owner approved)
 Owner, on a VATr++ page for MIT Prototyping Assignment 1: "its handwriting did not match at all". VATr++/DiffusionPen
 are IAM-trained and only approximate a writer. Experiment: write with the writer's OWN ink cut from their scans.
 - `experiments/collage/bank.py`: page scans + Groq line transcripts → word crops; a crop is kept only when TrOCR's
@@ -248,5 +248,11 @@ are IAM-trained and only approximate a writer. Experiment: write with the writer
   only for g j q y f; edge fragments of neighbouring words removed (not for digit words — it cut the PRN's last 4).
 - Result: 2-page assignment delivered to the owner; closest match so far. Limits: letters the writer never wrote
   (from DSA pages: j, some b/w/q, several capitals) come from the Caveat font; real-word cut-outs vary in size.
-Not integrated: it needs several pages of the writer's handwriting plus a transcript, and integration (worker engine
-`HW_ENGINE=collage`, bank built per reference) needs owner approval. Bank/scans are private and git-ignored.
+Integrated 2026-11-05 as `hw/collage.py` (`CollageGenerator`, same generator interface): the studio's Engine select
+"Your own ink" sends up to 4 reference pages (`reference`, `reference2..4`) and their Groq vision transcript
+(`payload.referenceText`, via /api/transcribe, cached per reference file); the worker builds the bank per job
+(`prepare`) and the normal pipeline does layout, tables, best-of-N, the read-back check and rewrites (different seeds =
+different letter picks). Characters outside the writer's bank are font-drawn by `segments` (now `digits=True` for this
+engine: the writer's own digits are reused and checked). Provenance says the writer's shapes are reused.
+Measured on the owner's 4 DSA pages: 38/38 words exact (37 first pass), 12.9 s on the RTX 5050 incl. bank building.
+Fixed while integrating: comma tails were clipped into dots (and inflated the word's size).

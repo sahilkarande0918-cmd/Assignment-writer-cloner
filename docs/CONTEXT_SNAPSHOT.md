@@ -4,6 +4,9 @@ Written 2026-11-02 before context compaction. Source of truth for requirements: 
 Read order for a new session: `master_prompt.md` → `CLAUDE.md` → this file → `docs/PROJECT_STATUS.md` → `docs/HANDOFF.md`
 → `docs/DECISIONS.md` → `git log -5 --oneline && git status`.
 
+## 0b. Update 2026-11-05
+Collage "Your own ink" engine integrated into the worker and studio (ADR-037). Next: owner live test. See `docs/HANDOFF.md` top.
+
 ## 0a. Update 2026-11-04
 Last product push `4b654f6` (export fix). Collage "real handwriting" experiment added (ADR-037, `docs/HANDOFF.md` top).
 VATr++ is the default engine (ADR-035); accounts + free Kaggle GPU live (ADR-027..030).

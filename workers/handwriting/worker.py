@@ -102,6 +102,10 @@ def handle(job: dict, gen, reader=None) -> None:
             r = http("GET", f"/api/worker/jobs/{job['id']}/inputs/{name}")
             r.raise_for_status()
             files[name] = r.content
+        if job["payload"].get("engine") == "collage":  # the writer's own ink (ADR-037); no model, needs the word checker
+            from hw.collage import CollageGenerator
+
+            gen = CollageGenerator(reader)
         result = run(job["payload"], files, gen, reader=reader, candidates=int(job["payload"].get("candidates", 3)), progress=hb.update)
         if hb.cancelled:
             return

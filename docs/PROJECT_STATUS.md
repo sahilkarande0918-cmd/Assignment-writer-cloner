@@ -96,5 +96,5 @@ Saving/library (phase 5); DOCX→PDF via LibreOffice (worker) not built.
 3. Before many students: custom SMTP for Neon Auth emails (shared SMTP is rate-limited).
 Optional: LibreOffice DOCX->PDF in the worker; authorised-sample similarity study.
 
-## Experiment — collage engine (2026-11-04)
-Writer's-own-ink collage (ADR-037) in `workers/handwriting/experiments/collage/`; not wired into the app. Integration awaits owner approval.
+## Collage engine — "Your own ink" (2026-11-05, owner approved)
+Writer's-own-ink engine (ADR-037) in `workers/handwriting/hw/collage.py`, selectable in the Generate panel (Engine).

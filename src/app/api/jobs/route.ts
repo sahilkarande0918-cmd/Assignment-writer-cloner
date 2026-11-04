@@ -8,7 +8,7 @@ import { quota, quotaBlock } from "@/lib/server/usage";
 import { readHead, sniffKind } from "@/lib/formats";
 
 // Queue a handwriting job and wake the cloud GPU. Body: multipart form with `payload` (JSON), `reference` (PNG/JPEG),
-// optional `paper`, optional `projectId`.
+// optional `reference2`..`reference4` (more pages for the collage engine), optional `paper`, optional `projectId`.
 export const POST = userRoute(async (req, _ctx, user) => {
   const form = await req.formData().catch(() => null);
   if (!form) return Response.json({ error: "Send a multipart form." }, { status: 400 });
@@ -18,7 +18,7 @@ export const POST = userRoute(async (req, _ctx, user) => {
   if (uuidOk(projectId)) await ownProject(projectId, user);
 
   const inputs: Record<string, { data: Uint8Array; type: string }> = {};
-  for (const name of ["reference", "paper"] as const) {
+  for (const name of ["reference", "reference2", "reference3", "reference4", "paper"] as const) {
     const f = form.get(name);
     if (!(f instanceof File)) continue;
     const kind = sniffKind(await readHead(f), f.name);

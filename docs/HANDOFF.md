@@ -1,6 +1,15 @@
 # Handoff
 
-## Immediately before the last compaction (2026-11-04)
+## Current state (2026-11-05)
+- Collage engine integrated (ADR-037): worker `hw/collage.py`, pipeline `prepare` hook, `segments(digits=)`, app Engine
+  select in `src/components/studio/generation-panel.tsx`, payload `engine`/`referenceText` in `src/lib/hwjob.ts`, job
+  route accepts `reference2..4`. Verified: worker pytest 13/13, `npm test`, lint, build; DSA pipeline run 38/38 exact.
+- Not yet verified: a live collage job on the deployed site through the Kaggle GPU (needs the owner signed in).
+- Next task: owner tries "Your own ink" on the live site; then polish letter gaps (b/w/q/j, capitals) by asking for a
+  page containing the missing letters, or a per-letter upload.
+- Last verified push: see `git log -1` (the commit that adds this note).
+
+## Immediately before the previous compaction (2026-11-04)
 - Doing: owner's MIT Prototyping Assignment 1 in their own handwriting (reference: owner's DSA-IA activity PDF),
   notebook paper, hand-drawn prototype sketch, name/PRN/batch filled, max 2 pages. **Delivered** as a PDF in chat.
 - Built for it: the collage engine (ADR-037), now saved in `workers/handwriting/experiments/collage/` (bank.py,

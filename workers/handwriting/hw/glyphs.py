@@ -28,20 +28,21 @@ def font_for(c: str) -> str | None:
     return None
 
 
-def segments(word: str, charset: set[str]) -> list[tuple[str, bool]]:
+def segments(word: str, charset: set[str], digits: bool = False) -> list[tuple[str, bool]]:
     """Split a word into (text, model_can_write) runs: "lab@x" -> [("lab", True), ("@", False), ("x", True)].
     Digits are always drawn from the font: DiffusionPen (trained on IAM, few numbers) miswrites digits and drops
     decimal points, and a wrong number in an assignment is worse than a less personal style. A run with no letter left
     ("." after "]", a lone "-", the "." of "0.5") is drawn from the font too: DiffusionPen stretches every image to
-    full height, so a generated lone full stop would come out as a blob."""
+    full height, so a generated lone full stop would come out as a blob.
+    digits=True: the engine writes digits itself (the collage engine reuses the writer's own, checked by reading back)."""
     out: list[tuple[str, bool]] = []
     for c in word:
-        ok = c in charset and not c.isdigit()
+        ok = c in charset and (digits or not c.isdigit())
         if ok and out and out[-1][1]:
             out[-1] = (out[-1][0] + c, True)
         else:
             out.append((c, ok))
-    return [p for t, ok in out for p in ([(t, ok)] if not ok or any(c.isalpha() for c in t) else [(c, False) for c in t])]
+    return [p for t, ok in out for p in ([(t, ok)] if not ok or any(c.isalpha() or (digits and c.isdigit()) for c in t) else [(c, False) for c in t])]
 
 
 def glyph(c: str, pen: tuple[int, int, int], xheight: float) -> tuple[Image.Image, Image.Image, int]:

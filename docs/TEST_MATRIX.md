@@ -153,4 +153,5 @@ Password-protected PDF fixture, multi-page photo with perspective, visual-diff m
 
 ## Collage engine (2026-11-04, experiment)
 Manual: MIT Prototyping Assignment 1, 2 pages, PRN read back as "202501110194" after the digit-word fix; built words
-judged by TrOCR read-back (best of 10). No automated test yet — add one with the engine if it is integrated.
+judged by TrOCR read-back (best of 10). Automated (2026-11-05): `test_collage_engine_reuses_the_writers_own_words_and_letters`, `test_collage_engine_needs_enough_handwriting`
+(worker suite 13/13). Pipeline on the owner's DSA pages: 38/38 exact, 12.9 s.

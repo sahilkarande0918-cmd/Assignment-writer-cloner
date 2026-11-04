@@ -16,6 +16,10 @@ export const HwPayloadSchema = z.object({
   candidates: z.number().int().min(1).max(8),
   /** occurrence id -> extra re-seed count, for "regenerate this line". */
   bumps: z.record(z.string(), z.number().int().min(0).max(1000)),
+  /** "collage": write with the writer's own ink cut from the reference pages (ADR-037); default: the AI model. */
+  engine: z.enum(["model", "collage"]).optional(),
+  /** Collage engine: AI transcript of the reference pages, used only to label the cut-out words. */
+  referenceText: z.string().max(40_000).optional(),
 });
 export type HwPayload = z.infer<typeof HwPayloadSchema>;
 
